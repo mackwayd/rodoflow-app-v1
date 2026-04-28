@@ -1,0 +1,289 @@
+package com.example.rodoflow
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import com.example.rodoflow.data.model.SaldoMotorista
+import com.example.rodoflow.ui.abastecimentos.NovaAbastecimentoScreen
+import com.example.rodoflow.ui.despesas.NovaDespesaScreen
+import com.example.rodoflow.ui.financeiro.FinanceiroViewModel
+import com.example.rodoflow.ui.home.HomeViewModel
+import com.example.rodoflow.ui.viagens.ViagemDetalheScreen
+import com.example.rodoflow.ui.viagens.NovaViagemScreen
+import com.example.rodoflow.ui.viagens.ViagensViewModel
+import com.example.rodoflow.ui.theme.RodoFlowTheme
+import java.text.NumberFormat
+import java.util.Locale
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            RodoFlowTheme {
+                RodoFlowApp()
+            }
+        }
+    }
+}
+
+@Composable
+fun RodoFlowApp() {
+    var selectedTab by rememberSaveable { mutableStateOf(BottomTab.Home) }
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        bottomBar = {
+            NavigationBar {
+                BottomTab.entries.forEach { tab ->
+                    NavigationBarItem(
+                        selected = selectedTab == tab,
+                        onClick = { selectedTab = tab },
+                        label = { Text(text = tab.label) },
+                        icon = {}
+                    )
+                }
+            }
+        }
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+            contentAlignment = Alignment.Center
+        ) {
+            when (selectedTab) {
+                BottomTab.Home -> HomeScreen()
+                BottomTab.Viagens -> ViagensScreen()
+                BottomTab.Financeiro -> FinanceiroScreen()
+            }
+        }
+    }
+}
+
+enum class BottomTab(val label: String) {
+    Home("Home"),
+    Viagens("Viagens"),
+    Financeiro("Financeiro")
+}
+
+@Composable
+fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
+    val saldo by viewModel.saldo.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadSaldo()
+    }
+
+    val moneyFormat = remember {
+        NumberFormat.getCurrencyInstance(Locale.forLanguageTag("pt-BR")).apply {
+            minimumFractionDigits = 2
+            maximumFractionDigits = 2
+        }
+    }
+
+    when {
+        saldo.size == 1 -> {
+            Column(modifier = Modifier.padding(16.dp)) {
+                SaldoMotoristaLinhas(item = saldo.first(), moneyFormat = moneyFormat)
+            }
+        }
+        saldo.size > 1 -> {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(
+                    items = saldo,
+                    key = { it.motoristaId },
+                ) { item ->
+                    SaldoMotoristaLinhas(item = item, moneyFormat = moneyFormat)
+                }
+            }
+        }
+        else -> Box(modifier = Modifier.fillMaxSize())
+    }
+}
+
+@Composable
+private fun SaldoMotoristaLinhas(item: SaldoMotorista, moneyFormat: NumberFormat) {
+    Column {
+        Text(text = "Motorista: ${item.motoristaNome}")
+        Text(text = "Total de viagens: ${item.totalViagens}")
+        Text(text = "Saldo pendente: ${moneyFormat.format(item.saldoPendente)}")
+    }
+}
+
+@Composable
+fun ViagensScreen(viewModel: ViagensViewModel = viewModel()) {
+    val navController = rememberNavController()
+    NavHost(
+        modifier = Modifier.fillMaxSize(),
+        navController = navController,
+        startDestination = "viagens_list",
+    ) {
+        composable("viagens_list") {
+            val viagens by viewModel.viagens.collectAsStateWithLifecycle()
+
+            LaunchedEffect(Unit) {
+                viewModel.loadViagens()
+            }
+
+            val moneyFormat = remember {
+                NumberFormat.getCurrencyInstance(Locale.forLanguageTag("pt-BR")).apply {
+                    minimumFractionDigits = 2
+                    maximumFractionDigits = 2
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Button(onClick = { navController.navigate("nova_viagem") }) {
+                    Text("+ Nova Viagem")
+                }
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(
+                        items = viagens,
+                        key = { it.id },
+                    ) { item ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { navController.navigate("viagem_detalhe/${item.id}") },
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(text = "${item.origem} → ${item.destino}")
+                            Text(text = "Valor: ${moneyFormat.format(item.valorBruto)}")
+                            Text(text = "Status: ${item.status}")
+                        }
+                    }
+                }
+            }
+        }
+        composable("nova_viagem") {
+            NovaViagemScreen(onNavigateBack = { navController.popBackStack() })
+        }
+        composable("viagem_detalhe/{viagemId}") { backStackEntry ->
+            val viagemId = backStackEntry.arguments?.getString("viagemId").orEmpty()
+            ViagemDetalheScreen(
+                viagemId = viagemId,
+                onNavigateNovaDespesa = { id -> navController.navigate("nova_despesa/$id") },
+                onNavigateNovoAbastecimento = { id -> navController.navigate("nova_abastecimento/$id") },
+            )
+        }
+        composable("nova_despesa/{viagemId}") { backStackEntry ->
+            val viagemId = backStackEntry.arguments?.getString("viagemId").orEmpty()
+            NovaDespesaScreen(
+                viagemId = viagemId,
+                onNavigateBack = { navController.popBackStack() },
+            )
+        }
+        composable("nova_abastecimento/{viagemId}") { backStackEntry ->
+            val viagemId = backStackEntry.arguments?.getString("viagemId").orEmpty()
+            NovaAbastecimentoScreen(
+                viagemId = viagemId,
+                onNavigateBack = { navController.popBackStack() },
+            )
+        }
+    }
+}
+
+@Composable
+fun FinanceiroScreen(viewModel: FinanceiroViewModel = viewModel()) {
+    val resumos by viewModel.resumos.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadResumo()
+    }
+
+    val moneyFormat = remember {
+        NumberFormat.getCurrencyInstance(Locale.forLanguageTag("pt-BR")).apply {
+            minimumFractionDigits = 2
+            maximumFractionDigits = 2
+        }
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        items(
+            items = resumos,
+            key = { it.viagemId },
+        ) { item ->
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(text = "Motorista: ${item.motoristaNome}")
+                    Text(text = "Caminhão: ${item.caminhaoPlaca}")
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(text = "Bruto: ${moneyFormat.format(item.valorBruto)}")
+                    Text(text = "Despesas: ${moneyFormat.format(item.totalDespesas)}")
+                    Text(text = "Abastecimento: ${moneyFormat.format(item.totalAbastecimentos)}")
+                    Text(
+                        text = "Líquido: ${moneyFormat.format(item.valorLiquido)}",
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun RodoFlowAppPreview() {
+    RodoFlowTheme {
+        RodoFlowApp()
+    }
+}
