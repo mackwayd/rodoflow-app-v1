@@ -13,12 +13,26 @@ class ViagensViewModel(
     private val repository: ViagemRepository = ViagemRepository(),
 ) : ViewModel() {
 
+    private val _loading = MutableStateFlow(false)
+    val loading: StateFlow<Boolean> = _loading.asStateFlow()
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+
     private val _viagens = MutableStateFlow<List<Viagem>>(emptyList())
     val viagens: StateFlow<List<Viagem>> = _viagens.asStateFlow()
 
     fun loadViagens() {
         viewModelScope.launch {
-            _viagens.value = repository.getViagens(motoristaId = "user-1")
+            _loading.value = true
+            _error.value = null
+            try {
+                _viagens.value = repository.getViagens(motoristaId = "user-1")
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Não foi possível carregar as viagens."
+            } finally {
+                _loading.value = false
+            }
         }
     }
 }

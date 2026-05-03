@@ -13,6 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.rodoflow.ui.session.UserProfile
+import com.example.rodoflow.ui.session.rememberAppSessionViewModel
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -38,6 +40,10 @@ fun ViagemDetalheScreen(
         }
     }
 
+    val sessionViewModel = rememberAppSessionViewModel()
+    val profile by sessionViewModel.profile.collectAsStateWithLifecycle()
+    val isAdmin = profile == UserProfile.Admin
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -53,11 +59,20 @@ fun ViagemDetalheScreen(
             Text(text = "Destino: ${viagemAtual?.destino.orEmpty()}")
             Text(text = "Valor bruto: ${moneyFormat.format(viagemAtual?.valorBruto ?: 0.0)}")
             Text(text = "Status: ${viagemAtual?.status.orEmpty()}")
+            Text(text = "Status pagamento: ${viagemAtual?.statusPagamento.orEmpty()}")
             Button(onClick = { onNavigateNovaDespesa(viagemId) }) {
                 Text(text = "+ Despesa")
             }
             Button(onClick = { onNavigateNovoAbastecimento(viagemId) }) {
                 Text(text = "+ Abastecimento")
+            }
+            Button(onClick = { viewModel.finalizarViagem(viagemId) }) {
+                Text(text = "Finalizar Viagem")
+            }
+            if (isAdmin) {
+                Button(onClick = { viewModel.marcarComoPago(viagemId) }) {
+                    Text(text = "Marcar como Pago")
+                }
             }
         } else {
             Text(text = "Viagem não encontrada")

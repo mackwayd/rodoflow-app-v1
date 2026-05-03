@@ -16,6 +16,14 @@ class ViagemRepository(
         apiService.getViagemById(id)
     }.getOrNull()
 
+    suspend fun finalizarViagem(id: String) {
+        apiService.finalizarViagem(id).use { }
+    }
+
+    suspend fun pagarViagem(id: String) {
+        apiService.pagarViagem(id).use { }
+    }
+
     suspend fun createViagem(
         motoristaId: String,
         caminhaoId: String,

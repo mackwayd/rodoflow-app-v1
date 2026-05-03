@@ -31,4 +31,24 @@ class ViagemDetalheViewModel(
             _isLoading.value = false
         }
     }
+
+    fun finalizarViagem(viagemId: String) {
+        viewModelScope.launch {
+            runCatching {
+                repository.finalizarViagem(viagemId)
+            }.onSuccess {
+                loadViagem(viagemId)
+            }
+        }
+    }
+
+    fun marcarComoPago(viagemId: String) {
+        viewModelScope.launch {
+            runCatching {
+                repository.pagarViagem(viagemId)
+            }.onSuccess {
+                loadViagem(viagemId)
+            }
+        }
+    }
 }

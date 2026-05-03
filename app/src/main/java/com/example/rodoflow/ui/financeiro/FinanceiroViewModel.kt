@@ -13,12 +13,26 @@ class FinanceiroViewModel(
     private val repository: FinanceiroRepository = FinanceiroRepository(),
 ) : ViewModel() {
 
+    private val _loading = MutableStateFlow(false)
+    val loading: StateFlow<Boolean> = _loading.asStateFlow()
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+
     private val _resumos = MutableStateFlow<List<ResumoViagem>>(emptyList())
     val resumos: StateFlow<List<ResumoViagem>> = _resumos.asStateFlow()
 
     fun loadResumo() {
         viewModelScope.launch {
-            _resumos.value = repository.getResumo()
+            _loading.value = true
+            _error.value = null
+            try {
+                _resumos.value = repository.getResumo()
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Não foi possível carregar o resumo."
+            } finally {
+                _loading.value = false
+            }
         }
     }
 }

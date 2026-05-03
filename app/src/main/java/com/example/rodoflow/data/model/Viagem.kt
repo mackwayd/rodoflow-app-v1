@@ -6,4 +6,5 @@ data class Viagem(
     val destino: String,
     val valorBruto: Double,
     val status: String,
+    val statusPagamento: String? = null,
 )

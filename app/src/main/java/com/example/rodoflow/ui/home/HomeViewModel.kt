@@ -13,12 +13,26 @@ class HomeViewModel(
     private val repository: FinanceiroRepository = FinanceiroRepository(),
 ) : ViewModel() {
 
+    private val _loading = MutableStateFlow(false)
+    val loading: StateFlow<Boolean> = _loading.asStateFlow()
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+
     private val _saldo = MutableStateFlow<List<SaldoMotorista>>(emptyList())
     val saldo: StateFlow<List<SaldoMotorista>> = _saldo.asStateFlow()
 
     fun loadSaldo() {
         viewModelScope.launch {
-            _saldo.value = repository.getSaldo()
+            _loading.value = true
+            _error.value = null
+            try {
+                _saldo.value = repository.getSaldo()
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Não foi possível carregar o saldo."
+            } finally {
+                _loading.value = false
+            }
         }
     }
 }
