@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -43,13 +42,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.rodoflow.data.model.SaldoMotorista
-import com.example.rodoflow.data.repository.AuthRepository
 import com.example.rodoflow.ui.abastecimentos.NovaAbastecimentoScreen
 import com.example.rodoflow.ui.despesas.NovaDespesaScreen
 import com.example.rodoflow.ui.financeiro.FinanceiroViewModel
 import com.example.rodoflow.ui.home.HomeViewModel
-import com.example.rodoflow.ui.login.LoginScreen
-import com.example.rodoflow.ui.session.rememberAppSessionViewModel
 import com.example.rodoflow.ui.theme.RodoFlowTheme
 import com.example.rodoflow.ui.viagens.NovaViagemScreen
 import com.example.rodoflow.ui.viagens.ViagemDetalheScreen
@@ -71,42 +67,10 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun RodoFlowApp() {
-    val sessionViewModel = rememberAppSessionViewModel()
-    val profile by sessionViewModel.profile.collectAsStateWithLifecycle()
-
     var selectedTab by rememberSaveable { mutableStateOf(BottomTab.Home) }
     var homeReloadNonce by remember { mutableIntStateOf(0) }
     var viagensReloadNonce by remember { mutableIntStateOf(0) }
     var financeiroReloadNonce by remember { mutableIntStateOf(0) }
-
-    var bootstrapDone by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        AuthRepository().tryRestoreSession().onSuccess { (me, userId) ->
-            sessionViewModel.onAuthenticated(me, userId)
-        }
-        bootstrapDone = true
-    }
-
-    if (!bootstrapDone) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center,
-        ) {
-            CircularProgressIndicator()
-        }
-        return
-    }
-
-    if (profile == null) {
-        LoginScreen(
-            sessionViewModel = sessionViewModel,
-            onLoginSuccess = {
-                selectedTab = BottomTab.Home
-                homeReloadNonce++
-            },
-        )
-        return
-    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),

@@ -13,8 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.rodoflow.ui.session.UserProfile
-import com.example.rodoflow.ui.session.rememberAppSessionViewModel
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -40,9 +38,7 @@ fun ViagemDetalheScreen(
         }
     }
 
-    val sessionViewModel = rememberAppSessionViewModel()
-    val profile by sessionViewModel.profile.collectAsStateWithLifecycle()
-    val isAdmin = profile == UserProfile.Admin
+    val isAdmin = false
 
     Column(
         modifier = Modifier

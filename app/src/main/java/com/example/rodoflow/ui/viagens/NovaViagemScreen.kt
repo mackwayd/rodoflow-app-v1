@@ -26,6 +26,7 @@ fun NovaViagemScreen(
     var origem by remember { mutableStateOf("") }
     var destino by remember { mutableStateOf("") }
     var valorBrutoText by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
@@ -52,14 +53,29 @@ fun NovaViagemScreen(
             label = { Text("Valor bruto") },
         )
         Spacer(modifier = Modifier.height(8.dp))
+        errorMessage?.let { msg ->
+            Text(text = msg)
+        }
         Button(
             onClick = {
-                val valorBruto = valorBrutoText.replace(',', '.').toDoubleOrNull() ?: 0.0
+                errorMessage = null
+                val origemValue = origem.trim()
+                val destinoValue = destino.trim()
+                val valorBruto = valorBrutoText.replace(',', '.').toDoubleOrNull()
+                if (origemValue.isEmpty() || destinoValue.isEmpty()) {
+                    errorMessage = "Origem e destino são obrigatórios."
+                    return@Button
+                }
+                if (valorBruto == null || !valorBruto.isFinite() || valorBruto <= 0.0) {
+                    errorMessage = "Informe um valor bruto válido."
+                    return@Button
+                }
                 viewModel.createViagem(
-                    origem = origem,
-                    destino = destino,
+                    origem = origemValue,
+                    destino = destinoValue,
                     valorBruto = valorBruto,
                     onSuccess = onNavigateBack,
+                    onError = { message -> errorMessage = message },
                 )
             },
             modifier = Modifier.fillMaxWidth(),

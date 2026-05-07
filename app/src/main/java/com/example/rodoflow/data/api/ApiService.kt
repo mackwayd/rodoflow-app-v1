@@ -1,13 +1,10 @@
 package com.example.rodoflow.data.api
 
-import com.example.rodoflow.data.model.LoginRequest
-import com.example.rodoflow.data.model.LoginResponse
 import com.example.rodoflow.data.model.CreateViagemRequest
 import com.example.rodoflow.data.model.CreateAbastecimentoRequest
 import com.example.rodoflow.data.model.CreateDespesaRequest
 import com.example.rodoflow.data.model.ResumoViagem
 import com.example.rodoflow.data.model.SaldoMotorista
-import com.example.rodoflow.data.model.UsuarioMe
 import com.example.rodoflow.data.model.Viagem
 import okhttp3.ResponseBody
 import retrofit2.http.Body
@@ -19,17 +16,11 @@ import retrofit2.http.Query
 
 interface ApiService {
 
-    @POST("auth/login")
-    suspend fun login(@Body body: LoginRequest): LoginResponse
-
-    @GET("usuario/me")
-    suspend fun getUsuarioMe(): UsuarioMe
-
     @GET("financeiro/resumo")
-    suspend fun getResumo(): List<ResumoViagem>
+    suspend fun getResumo(): ResponseBody
 
     @GET("financeiro/saldo")
-    suspend fun getSaldo(): List<SaldoMotorista>
+    suspend fun getSaldo(): ResponseBody
 
     @GET("viagens")
     suspend fun getViagens(@Query("motoristaId") motoristaId: String): List<Viagem>

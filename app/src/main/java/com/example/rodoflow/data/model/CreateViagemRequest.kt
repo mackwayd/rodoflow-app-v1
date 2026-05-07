@@ -6,4 +6,5 @@ data class CreateViagemRequest(
     val origem: String,
     val destino: String,
     val valorBruto: Double,
+    val dataInicio: String,
 )

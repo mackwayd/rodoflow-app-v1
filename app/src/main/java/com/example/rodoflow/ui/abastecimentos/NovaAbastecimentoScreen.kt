@@ -28,6 +28,7 @@ fun NovaAbastecimentoScreen(
 ) {
     var litros by remember { mutableStateOf("") }
     var valorTotal by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
@@ -55,18 +56,31 @@ fun NovaAbastecimentoScreen(
         Spacer(modifier = Modifier.height(16.dp))
         Button(
             onClick = {
-                val litrosDouble = litros.replace(',', '.').toDoubleOrNull() ?: 0.0
-                val valorTotalDouble = valorTotal.replace(',', '.').toDoubleOrNull() ?: 0.0
+                errorMessage = null
+                val litrosDouble = litros.replace(',', '.').toDoubleOrNull()
+                val valorTotalDouble = valorTotal.replace(',', '.').toDoubleOrNull()
+                if (litrosDouble == null || !litrosDouble.isFinite() || litrosDouble <= 0.0) {
+                    errorMessage = "Informe uma quantidade de litros válida."
+                    return@Button
+                }
+                if (valorTotalDouble == null || !valorTotalDouble.isFinite() || valorTotalDouble <= 0.0) {
+                    errorMessage = "Informe um valor total válido."
+                    return@Button
+                }
                 viewModel.createAbastecimento(
-                    viagemId = viagemId,
                     litros = litrosDouble,
                     valorTotal = valorTotalDouble,
                     onSuccess = onNavigateBack,
+                    onError = { message -> errorMessage = message },
                 )
             },
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(text = "Salvar Abastecimento")
+        }
+        errorMessage?.let { msg ->
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(text = msg)
         }
     }
 }

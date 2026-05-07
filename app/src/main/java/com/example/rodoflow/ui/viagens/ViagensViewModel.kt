@@ -27,7 +27,7 @@ class ViagensViewModel(
             _loading.value = true
             _error.value = null
             try {
-                _viagens.value = repository.getViagens(motoristaId = "user-1")
+                _viagens.value = repository.getViagens(motoristaId = "motorista-1")
             } catch (e: Exception) {
                 _error.value = e.message ?: "Não foi possível carregar as viagens."
             } finally {

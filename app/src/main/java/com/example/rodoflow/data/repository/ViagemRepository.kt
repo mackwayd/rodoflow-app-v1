@@ -1,5 +1,6 @@
 package com.example.rodoflow.data.repository
 
+import android.util.Log
 import com.example.rodoflow.data.api.ApiService
 import com.example.rodoflow.data.api.RetrofitInstance
 import com.example.rodoflow.data.model.CreateAbastecimentoRequest
@@ -30,43 +31,51 @@ class ViagemRepository(
         origem: String,
         destino: String,
         valorBruto: Double,
+        dataInicio: String,
     ) {
-        apiService.createViagem(
-            CreateViagemRequest(
-                motoristaId = motoristaId,
-                caminhaoId = caminhaoId,
-                origem = origem,
-                destino = destino,
-                valorBruto = valorBruto,
-            ),
-        ).use { }
+        val body = CreateViagemRequest(
+            motoristaId = motoristaId,
+            caminhaoId = caminhaoId,
+            origem = origem,
+            destino = destino,
+            valorBruto = valorBruto,
+            dataInicio = dataInicio,
+        )
+        Log.d("CREATE_VIAGEM_BODY", body.toString())
+        apiService.createViagem(body).use { }
     }
 
     suspend fun createDespesa(
-        viagemId: String,
-        descricao: String,
+        caminhaoId: String,
         valor: Double,
+        tipo: String,
+        data: String,
+        descricao: String?,
     ) {
-        apiService.createDespesa(
-            CreateDespesaRequest(
-                viagemId = viagemId,
-                descricao = descricao,
-                valor = valor,
-            ),
-        ).use { }
+        val body = CreateDespesaRequest(
+            caminhaoId = caminhaoId,
+            valor = valor,
+            tipo = tipo,
+            data = data,
+            descricao = descricao,
+        )
+        Log.d("CREATE_DESPESA_BODY", body.toString())
+        apiService.createDespesa(body).use { }
     }
 
     suspend fun createAbastecimento(
-        viagemId: String,
+        caminhaoId: String,
         litros: Double,
         valorTotal: Double,
+        data: String,
     ) {
-        apiService.createAbastecimento(
-            CreateAbastecimentoRequest(
-                viagemId = viagemId,
-                litros = litros,
-                valorTotal = valorTotal,
-            ),
-        ).use { }
+        val body = CreateAbastecimentoRequest(
+            caminhaoId = caminhaoId,
+            litros = litros,
+            valorTotal = valorTotal,
+            data = data,
+        )
+        Log.d("CREATE_ABASTECIMENTO_BODY", body.toString())
+        apiService.createAbastecimento(body).use { }
     }
 }

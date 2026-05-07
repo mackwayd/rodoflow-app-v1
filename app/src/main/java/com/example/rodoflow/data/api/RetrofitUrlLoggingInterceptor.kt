@@ -8,7 +8,7 @@ class RetrofitUrlLoggingInterceptor : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): okhttp3.Response {
         val request = chain.request()
-        Log.d("RETROFIT_URL", request.url().toString())
+        Log.d("RETROFIT_URL", request.url.toString())
         return chain.proceed(request)
     }
 }
