@@ -3,10 +3,19 @@ package com.example.rodoflow.ui.viagens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,7 +26,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NovaViagemScreen(
     onNavigateBack: () -> Unit,
@@ -25,12 +36,26 @@ fun NovaViagemScreen(
 ) {
     var origem by remember { mutableStateOf("") }
     var destino by remember { mutableStateOf("") }
-    var valorBrutoText by remember { mutableStateOf("") }
+    var numeroToneladasText by remember { mutableStateOf("") }
+    var valorToneladaText by remember { mutableStateOf("") }
+    var cliente by remember { mutableStateOf("") }
+    var cnpjCliente by remember { mutableStateOf("") }
+    var tipoCarga by remember { mutableStateOf("SOJA") }
+    var kmInicialText by remember { mutableStateOf("") }
+    var tipoCargaExpanded by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val numeroToneladas = numeroToneladasText.replace(',', '.').toDoubleOrNull()
+    val valorTonelada = valorToneladaText.replace(',', '.').toDoubleOrNull()
+    val valorBrutoEstimado = (numeroToneladas ?: 0.0) * (valorTonelada ?: 0.0)
+
+    val tiposCarga = listOf("SOJA", "MILHO", "FERTILIZANTE", "RAÇÃO", "OUTROS")
 
     Column(
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .imePadding()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -47,11 +72,65 @@ fun NovaViagemScreen(
             label = { Text("Destino") },
         )
         OutlinedTextField(
-            value = valorBrutoText,
-            onValueChange = { valorBrutoText = it },
+            value = numeroToneladasText,
+            onValueChange = { numeroToneladasText = it },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Valor bruto") },
+            label = { Text("Número toneladas") },
         )
+        OutlinedTextField(
+            value = valorToneladaText,
+            onValueChange = { valorToneladaText = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Valor tonelada") },
+        )
+        OutlinedTextField(
+            value = cliente,
+            onValueChange = { cliente = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Cliente") },
+        )
+        OutlinedTextField(
+            value = cnpjCliente,
+            onValueChange = { cnpjCliente = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("CNPJ") },
+        )
+        ExposedDropdownMenuBox(
+            expanded = tipoCargaExpanded,
+            onExpandedChange = { tipoCargaExpanded = !tipoCargaExpanded },
+        ) {
+            OutlinedTextField(
+                value = tipoCarga,
+                onValueChange = { },
+                readOnly = true,
+                modifier = Modifier
+                    .menuAnchor()
+                    .fillMaxWidth(),
+                label = { Text("Tipo carga") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = tipoCargaExpanded) },
+            )
+            DropdownMenu(
+                expanded = tipoCargaExpanded,
+                onDismissRequest = { tipoCargaExpanded = false },
+            ) {
+                tiposCarga.forEach { tipo ->
+                    DropdownMenuItem(
+                        text = { Text(tipo) },
+                        onClick = {
+                            tipoCarga = tipo
+                            tipoCargaExpanded = false
+                        },
+                    )
+                }
+            }
+        }
+        OutlinedTextField(
+            value = kmInicialText,
+            onValueChange = { kmInicialText = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("KM inicial") },
+        )
+        Text(text = "Valor bruto estimado: R$ ${"%.2f".format(Locale.US, valorBrutoEstimado)}")
         Spacer(modifier = Modifier.height(8.dp))
         errorMessage?.let { msg ->
             Text(text = msg)
@@ -61,19 +140,39 @@ fun NovaViagemScreen(
                 errorMessage = null
                 val origemValue = origem.trim()
                 val destinoValue = destino.trim()
-                val valorBruto = valorBrutoText.replace(',', '.').toDoubleOrNull()
+                val clienteValue = cliente.trim()
+                val cnpjClienteValue = cnpjCliente.trim()
+                val kmInicial = kmInicialText.replace(',', '.').toDoubleOrNull()
+
                 if (origemValue.isEmpty() || destinoValue.isEmpty()) {
                     errorMessage = "Origem e destino são obrigatórios."
                     return@Button
                 }
-                if (valorBruto == null || !valorBruto.isFinite() || valorBruto <= 0.0) {
-                    errorMessage = "Informe um valor bruto válido."
+                if (numeroToneladas == null || !numeroToneladas.isFinite() || numeroToneladas <= 0.0) {
+                    errorMessage = "Número de toneladas deve ser maior que 0."
+                    return@Button
+                }
+                if (valorTonelada == null || !valorTonelada.isFinite() || valorTonelada <= 0.0) {
+                    errorMessage = "Valor por tonelada deve ser maior que 0."
+                    return@Button
+                }
+                if (kmInicial == null || !kmInicial.isFinite() || kmInicial < 0.0) {
+                    errorMessage = "KM inicial deve ser maior ou igual a 0."
+                    return@Button
+                }
+                if (clienteValue.isEmpty()) {
+                    errorMessage = "Cliente é obrigatório."
                     return@Button
                 }
                 viewModel.createViagem(
                     origem = origemValue,
                     destino = destinoValue,
-                    valorBruto = valorBruto,
+                    numeroToneladas = numeroToneladas,
+                    valorTonelada = valorTonelada,
+                    cliente = clienteValue,
+                    cnpjCliente = cnpjClienteValue,
+                    tipoCarga = tipoCarga,
+                    kmInicial = kmInicial,
                     onSuccess = onNavigateBack,
                     onError = { message -> errorMessage = message },
                 )

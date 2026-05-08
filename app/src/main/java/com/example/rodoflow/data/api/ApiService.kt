@@ -3,6 +3,7 @@ package com.example.rodoflow.data.api
 import com.example.rodoflow.data.model.CreateViagemRequest
 import com.example.rodoflow.data.model.CreateAbastecimentoRequest
 import com.example.rodoflow.data.model.CreateDespesaRequest
+import com.example.rodoflow.data.model.FinalizarViagemRequest
 import com.example.rodoflow.data.model.ResumoViagem
 import com.example.rodoflow.data.model.SaldoMotorista
 import com.example.rodoflow.data.model.Viagem
@@ -29,7 +30,10 @@ interface ApiService {
     suspend fun getViagemById(@Path("id") id: String): Viagem
 
     @PATCH("viagens/{id}/finalizar")
-    suspend fun finalizarViagem(@Path("id") id: String): ResponseBody
+    suspend fun finalizarViagem(
+        @Path("id") id: String,
+        @Body body: FinalizarViagemRequest,
+    ): ResponseBody
 
     @PATCH("viagens/{id}/pagar")
     suspend fun pagarViagem(@Path("id") id: String): ResponseBody

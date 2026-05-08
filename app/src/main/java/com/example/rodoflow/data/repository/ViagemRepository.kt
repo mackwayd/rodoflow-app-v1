@@ -6,6 +6,7 @@ import com.example.rodoflow.data.api.RetrofitInstance
 import com.example.rodoflow.data.model.CreateAbastecimentoRequest
 import com.example.rodoflow.data.model.CreateDespesaRequest
 import com.example.rodoflow.data.model.CreateViagemRequest
+import com.example.rodoflow.data.model.FinalizarViagemRequest
 import com.example.rodoflow.data.model.Viagem
 
 class ViagemRepository(
@@ -17,8 +18,19 @@ class ViagemRepository(
         apiService.getViagemById(id)
     }.getOrNull()
 
-    suspend fun finalizarViagem(id: String) {
-        apiService.finalizarViagem(id).use { }
+    suspend fun finalizarViagem(
+        id: String,
+        teveQuebra: Boolean,
+        toneladasFinais: Double? = null,
+        observacaoQuebra: String? = null,
+    ) {
+        val body = FinalizarViagemRequest(
+            teveQuebra = teveQuebra,
+            toneladasFinais = toneladasFinais,
+            observacaoQuebra = observacaoQuebra,
+        )
+        Log.d("FINALIZAR_VIAGEM_BODY", body.toString())
+        apiService.finalizarViagem(id, body).use { }
     }
 
     suspend fun pagarViagem(id: String) {
@@ -26,20 +38,24 @@ class ViagemRepository(
     }
 
     suspend fun createViagem(
-        motoristaId: String,
-        caminhaoId: String,
         origem: String,
         destino: String,
-        valorBruto: Double,
-        dataInicio: String,
+        numeroToneladas: Double,
+        valorTonelada: Double,
+        cliente: String,
+        cnpjCliente: String,
+        tipoCarga: String,
+        kmInicial: Double,
     ) {
         val body = CreateViagemRequest(
-            motoristaId = motoristaId,
-            caminhaoId = caminhaoId,
             origem = origem,
             destino = destino,
-            valorBruto = valorBruto,
-            dataInicio = dataInicio,
+            numeroToneladas = numeroToneladas,
+            valorTonelada = valorTonelada,
+            cliente = cliente,
+            cnpjCliente = cnpjCliente,
+            tipoCarga = tipoCarga,
+            kmInicial = kmInicial,
         )
         Log.d("CREATE_VIAGEM_BODY", body.toString())
         apiService.createViagem(body).use { }

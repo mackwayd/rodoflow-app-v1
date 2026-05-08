@@ -6,8 +6,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.rodoflow.data.repository.ViagemRepository
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
-import java.time.OffsetDateTime
-import java.time.format.DateTimeFormatter
 
 class NovaViagemViewModel(
     private val repository: ViagemRepository = ViagemRepository(),
@@ -16,19 +14,26 @@ class NovaViagemViewModel(
     fun createViagem(
         origem: String,
         destino: String,
-        valorBruto: Double,
+        numeroToneladas: Double,
+        valorTonelada: Double,
+        cliente: String,
+        cnpjCliente: String,
+        tipoCarga: String,
+        kmInicial: Double,
         onSuccess: () -> Unit,
         onError: (String) -> Unit,
     ) {
         viewModelScope.launch {
             try {
                 repository.createViagem(
-                    motoristaId = "motorista-1",
-                    caminhaoId = "cam-1",
                     origem = origem,
                     destino = destino,
-                    valorBruto = valorBruto,
-                    dataInicio = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(OffsetDateTime.now()),
+                    numeroToneladas = numeroToneladas,
+                    valorTonelada = valorTonelada,
+                    cliente = cliente,
+                    cnpjCliente = cnpjCliente,
+                    tipoCarga = tipoCarga,
+                    kmInicial = kmInicial,
                 )
                 onSuccess()
             } catch (e: HttpException) {

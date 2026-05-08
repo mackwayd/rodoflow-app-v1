@@ -47,6 +47,7 @@ import com.example.rodoflow.ui.despesas.NovaDespesaScreen
 import com.example.rodoflow.ui.financeiro.FinanceiroViewModel
 import com.example.rodoflow.ui.home.HomeViewModel
 import com.example.rodoflow.ui.theme.RodoFlowTheme
+import com.example.rodoflow.ui.util.formatIsoDateTimeBr
 import com.example.rodoflow.ui.viagens.NovaViagemScreen
 import com.example.rodoflow.ui.viagens.ViagemDetalheScreen
 import com.example.rodoflow.ui.viagens.ViagensViewModel
@@ -266,6 +267,8 @@ fun ViagensScreen(
                                 ) {
                                     Text(text = "${item.origem} → ${item.destino}")
                                     Text(text = "Valor: ${moneyFormat.format(item.valorBruto)}")
+                                    Text(text = "Início: ${formatIsoDateTimeBr(item.dataInicio)}")
+                                    Text(text = "Fim: ${formatIsoDateTimeBr(item.dataFim)}")
                                     Text(text = "Status: ${item.status}")
                                 }
                             }
@@ -279,8 +282,12 @@ fun ViagensScreen(
         }
         composable("viagem_detalhe/{viagemId}") { backStackEntry ->
             val viagemId = backStackEntry.arguments?.getString("viagemId").orEmpty()
+            val reloadTrigger by backStackEntry.savedStateHandle
+                .getStateFlow("reload_viagem_detalhe", 0L)
+                .collectAsStateWithLifecycle()
             ViagemDetalheScreen(
                 viagemId = viagemId,
+                reloadTrigger = reloadTrigger,
                 onNavigateNovaDespesa = { id -> navController.navigate("nova_despesa/$id") },
                 onNavigateNovoAbastecimento = { id -> navController.navigate("nova_abastecimento/$id") },
             )
@@ -289,14 +296,24 @@ fun ViagensScreen(
             val viagemId = backStackEntry.arguments?.getString("viagemId").orEmpty()
             NovaDespesaScreen(
                 viagemId = viagemId,
-                onNavigateBack = { navController.popBackStack() },
+                onNavigateBack = {
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("reload_viagem_detalhe", System.currentTimeMillis())
+                    navController.popBackStack()
+                },
             )
         }
         composable("nova_abastecimento/{viagemId}") { backStackEntry ->
             val viagemId = backStackEntry.arguments?.getString("viagemId").orEmpty()
             NovaAbastecimentoScreen(
                 viagemId = viagemId,
-                onNavigateBack = { navController.popBackStack() },
+                onNavigateBack = {
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("reload_viagem_detalhe", System.currentTimeMillis())
+                    navController.popBackStack()
+                },
             )
         }
     }
