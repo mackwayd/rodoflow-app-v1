@@ -17,6 +17,7 @@ data class Viagem(
     val totalAbastecimentos: Double = 0.0,
     val saldoEmpresa: Double = 0.0,
     val valorQuebra: Double? = null,
+    val kgPerdido: Double? = null,
     val valorBrutoEfetivo: Double? = null,
     val status: String = "",
     val statusPagamento: String? = null,

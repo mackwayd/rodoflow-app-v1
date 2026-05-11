@@ -1,5 +1,6 @@
 package com.example.rodoflow.data.api
 
+import com.example.rodoflow.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -10,17 +11,16 @@ object RetrofitInstance {
     // Emulador: 10.0.2.2 = host. Físico: IP da máquina. Trailing slash obrigatório para Retrofit.
     private const val BASE_URL = "http://10.0.2.2:3000/"
 
-    private val httpLoggingInterceptor: HttpLoggingInterceptor by lazy {
-        HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
-        }
-    }
-
     private val okHttpClient: OkHttpClient by lazy {
-        OkHttpClient.Builder()
-            .addInterceptor(RetrofitUrlLoggingInterceptor())
-            .addInterceptor(httpLoggingInterceptor)
-            .build()
+        val builder = OkHttpClient.Builder()
+        if (BuildConfig.DEBUG) {
+            builder
+                .addInterceptor(RetrofitUrlLoggingInterceptor())
+                .addInterceptor(
+                    HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY },
+                )
+        }
+        builder.build()
     }
 
     val api: ApiService by lazy {

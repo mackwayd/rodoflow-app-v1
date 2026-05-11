@@ -6,4 +6,5 @@ data class CreateDespesaRequest(
     val tipo: String,
     val data: String,
     val descricao: String? = null,
+    val viagemId: String? = null,
 )

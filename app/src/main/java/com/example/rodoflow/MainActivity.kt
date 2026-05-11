@@ -4,11 +4,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,17 +16,26 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -35,27 +43,36 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.rodoflow.data.model.SaldoMotorista
+import com.example.rodoflow.AppLog
+import com.example.rodoflow.data.model.Viagem
 import com.example.rodoflow.ui.abastecimentos.NovaAbastecimentoScreen
+import com.example.rodoflow.ui.components.LoadDataErrorPanel
+import com.example.rodoflow.ui.components.LocalSnackbar
+import com.example.rodoflow.ui.components.StatusBadge
 import com.example.rodoflow.ui.despesas.NovaDespesaScreen
-import com.example.rodoflow.ui.financeiro.FinanceiroViewModel
-import com.example.rodoflow.ui.home.HomeViewModel
+import com.example.rodoflow.ui.financeiro.FinanceiroScreen
+import com.example.rodoflow.ui.home.HomeScreen
 import com.example.rodoflow.ui.theme.RodoFlowTheme
+import com.example.rodoflow.ui.util.formatBrl
 import com.example.rodoflow.ui.util.formatIsoDateTimeBr
+import com.example.rodoflow.ui.util.formatToneladas
 import com.example.rodoflow.ui.viagens.NovaViagemScreen
 import com.example.rodoflow.ui.viagens.ViagemDetalheScreen
+import com.example.rodoflow.ui.viagens.ViagemDetalheViewModel
 import com.example.rodoflow.ui.viagens.ViagensViewModel
-import java.text.NumberFormat
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
@@ -66,45 +83,103 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+sealed interface ViagensIntent {
+    data object NovaViagem : ViagensIntent
+    data class AbrirViagem(val viagemId: String) : ViagensIntent
+    data class NovoAbastecimento(val viagemId: String?) : ViagensIntent
+    data class NovaDespesa(val viagemId: String?) : ViagensIntent
+}
+
 @Composable
 fun RodoFlowApp() {
     var selectedTab by rememberSaveable { mutableStateOf(BottomTab.Home) }
     var homeReloadNonce by remember { mutableIntStateOf(0) }
     var viagensReloadNonce by remember { mutableIntStateOf(0) }
     var financeiroReloadNonce by remember { mutableIntStateOf(0) }
+    var pendingViagensIntent by remember { mutableStateOf<ViagensIntent?>(null) }
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        bottomBar = {
-            NavigationBar {
-                BottomTab.entries.forEach { tab ->
-                    NavigationBarItem(
-                        selected = selectedTab == tab,
-                        onClick = {
-                            selectedTab = tab
-                            when (tab) {
-                                BottomTab.Home -> homeReloadNonce++
-                                BottomTab.Viagens -> viagensReloadNonce++
-                                BottomTab.Financeiro -> financeiroReloadNonce++
-                            }
-                        },
-                        label = { Text(text = tab.label) },
-                        icon = {}
-                    )
-                }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarScope = rememberCoroutineScope()
+    val showSnackbar: (String) -> Unit = remember(snackbarHostState, snackbarScope) {
+        { message ->
+            snackbarScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(message)
             }
+            Unit
         }
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            contentAlignment = Alignment.Center,
-        ) {
-            when (selectedTab) {
-                BottomTab.Home -> HomeScreen(reloadNonce = homeReloadNonce)
-                BottomTab.Viagens -> ViagensScreen(reloadNonce = viagensReloadNonce)
-                BottomTab.Financeiro -> FinanceiroScreen(reloadNonce = financeiroReloadNonce)
+    }
+
+    CompositionLocalProvider(LocalSnackbar provides showSnackbar) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            bottomBar = {
+                NavigationBar {
+                    BottomTab.entries.forEach { tab ->
+                        NavigationBarItem(
+                            selected = selectedTab == tab,
+                            onClick = {
+                                selectedTab = tab
+                                when (tab) {
+                                    BottomTab.Home -> homeReloadNonce++
+                                    BottomTab.Viagens -> viagensReloadNonce++
+                                    BottomTab.Financeiro -> financeiroReloadNonce++
+                                }
+                            },
+                            label = { Text(text = tab.label) },
+                            icon = {}
+                        )
+                    }
+                }
+            },
+            snackbarHost = {
+                SnackbarHost(hostState = snackbarHostState) { data ->
+                    Snackbar(snackbarData = data)
+                }
+            },
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center,
+            ) {
+                when (selectedTab) {
+                    BottomTab.Home -> HomeScreen(
+                        reloadNonce = homeReloadNonce,
+                        onNovaViagem = {
+                            pendingViagensIntent = ViagensIntent.NovaViagem
+                            selectedTab = BottomTab.Viagens
+                        },
+                        onNovoAbastecimento = { viagemId ->
+                            pendingViagensIntent = ViagensIntent.NovoAbastecimento(viagemId)
+                            selectedTab = BottomTab.Viagens
+                        },
+                        onNovaDespesa = { viagemId ->
+                            pendingViagensIntent = ViagensIntent.NovaDespesa(viagemId)
+                            selectedTab = BottomTab.Viagens
+                        },
+                        onAbrirViagemAtual = { viagemId ->
+                            pendingViagensIntent = ViagensIntent.AbrirViagem(viagemId)
+                            selectedTab = BottomTab.Viagens
+                        },
+                    )
+                    BottomTab.Viagens -> ViagensScreen(
+                        reloadNonce = viagensReloadNonce,
+                        pendingIntent = pendingViagensIntent,
+                        onIntentHandled = { pendingViagensIntent = null },
+                        onFinanceiroChanged = {
+                            homeReloadNonce++
+                            financeiroReloadNonce++
+                            AppLog.d(
+                                "HOME_RELOAD",
+                                "onFinanceiroChanged disparado -> homeReloadNonce=$homeReloadNonce " +
+                                    "financeiroReloadNonce=$financeiroReloadNonce",
+                            )
+                        },
+                    )
+                    BottomTab.Financeiro -> FinanceiroScreen(reloadNonce = financeiroReloadNonce)
+                }
             }
         }
     }
@@ -117,85 +192,45 @@ enum class BottomTab(val label: String) {
 }
 
 @Composable
-fun HomeScreen(
-    reloadNonce: Int = 0,
-    viewModel: HomeViewModel = viewModel(),
-) {
-    val loading by viewModel.loading.collectAsStateWithLifecycle()
-    val error by viewModel.error.collectAsStateWithLifecycle()
-    val saldo by viewModel.saldo.collectAsStateWithLifecycle()
-
-    LaunchedEffect(Unit) {
-        viewModel.loadSaldo()
-    }
-    LaunchedEffect(reloadNonce) {
-        if (reloadNonce > 0) {
-            viewModel.loadSaldo()
-        }
-    }
-
-    val moneyFormat = remember {
-        NumberFormat.getCurrencyInstance(Locale.forLanguageTag("pt-BR")).apply {
-            minimumFractionDigits = 2
-            maximumFractionDigits = 2
-        }
-    }
-
-    when {
-        loading -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(text = "Carregando...")
-            }
-        }
-        error != null -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(text = error.orEmpty())
-            }
-        }
-        else -> {
-            when {
-                saldo.size == 1 -> {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        SaldoMotoristaLinhas(item = saldo.first(), moneyFormat = moneyFormat)
-                    }
-                }
-                saldo.size > 1 -> {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp),
-                        contentPadding = PaddingValues(vertical = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        items(
-                            items = saldo,
-                            key = { it.motoristaId },
-                        ) { item ->
-                            SaldoMotoristaLinhas(item = item, moneyFormat = moneyFormat)
-                        }
-                    }
-                }
-                else -> Box(modifier = Modifier.fillMaxSize())
-            }
-        }
-    }
-}
-
-@Composable
-private fun SaldoMotoristaLinhas(item: SaldoMotorista, moneyFormat: NumberFormat) {
-    Column {
-        Text(text = "Motorista: ${item.motoristaNome}")
-        Text(text = "Total de viagens: ${item.totalViagens}")
-        Text(text = "Saldo pendente: ${moneyFormat.format(item.saldoPendente)}")
-    }
-}
-
-@Composable
 fun ViagensScreen(
     reloadNonce: Int = 0,
+    pendingIntent: ViagensIntent? = null,
+    onIntentHandled: () -> Unit = {},
+    onFinanceiroChanged: () -> Unit = {},
     viewModel: ViagensViewModel = viewModel(),
 ) {
     val navController = rememberNavController()
+    LaunchedEffect(pendingIntent) {
+        when (val intent = pendingIntent) {
+            null -> Unit
+            ViagensIntent.NovaViagem -> {
+                navController.navigate("nova_viagem")
+                onIntentHandled()
+            }
+            is ViagensIntent.AbrirViagem -> {
+                navController.navigate("viagem_detalhe/${intent.viagemId}")
+                onIntentHandled()
+            }
+            is ViagensIntent.NovoAbastecimento -> {
+                if (intent.viagemId != null) {
+                    navController.navigate("viagem_detalhe/${intent.viagemId}")
+                    navController.navigate("nova_abastecimento/${intent.viagemId}")
+                } else {
+                    navController.navigate("nova_abastecimento")
+                }
+                onIntentHandled()
+            }
+            is ViagensIntent.NovaDespesa -> {
+                if (intent.viagemId != null) {
+                    navController.navigate("viagem_detalhe/${intent.viagemId}")
+                    navController.navigate("nova_despesa/${intent.viagemId}")
+                } else {
+                    navController.navigate("nova_despesa")
+                }
+                onIntentHandled()
+            }
+        }
+    }
     NavHost(
         modifier = Modifier.fillMaxSize(),
         navController = navController,
@@ -203,7 +238,7 @@ fun ViagensScreen(
     ) {
         composable("viagens_list") {
             val loading by viewModel.loading.collectAsStateWithLifecycle()
-            val error by viewModel.error.collectAsStateWithLifecycle()
+            val loadFailed by viewModel.loadFailed.collectAsStateWithLifecycle()
             val viagens by viewModel.viagens.collectAsStateWithLifecycle()
 
             LaunchedEffect(Unit) {
@@ -221,22 +256,21 @@ fun ViagensScreen(
                 }
             }
 
-            val moneyFormat = remember {
-                NumberFormat.getCurrencyInstance(Locale.forLanguageTag("pt-BR")).apply {
-                    minimumFractionDigits = 2
-                    maximumFractionDigits = 2
-                }
-            }
-
             when {
-                loading -> {
+                loading && viagens.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(text = "Carregando...")
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator()
+                            Text(
+                                text = "Carregando viagens...",
+                                modifier = Modifier.padding(top = 12.dp),
+                            )
+                        }
                     }
                 }
-                error != null -> {
+                loadFailed && viagens.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(text = error.orEmpty())
+                        LoadDataErrorPanel(onRetry = { viewModel.loadViagens() })
                     }
                 }
                 else -> {
@@ -244,32 +278,54 @@ fun ViagensScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Button(onClick = { navController.navigate("nova_viagem") }) {
+                        Button(
+                            onClick = { navController.navigate("nova_viagem") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp),
+                        ) {
                             Text("+ Nova Viagem")
                         }
 
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            items(
-                                items = viagens,
-                                key = { it.id },
-                            ) { item ->
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { navController.navigate("viagem_detalhe/${item.id}") },
-                                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                                ) {
-                                    Text(text = "${item.origem} → ${item.destino}")
-                                    Text(text = "Valor: ${moneyFormat.format(item.valorBruto)}")
-                                    Text(text = "Início: ${formatIsoDateTimeBr(item.dataInicio)}")
-                                    Text(text = "Fim: ${formatIsoDateTimeBr(item.dataFim)}")
-                                    Text(text = "Status: ${item.status}")
+                        if (viagens.isEmpty()) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Text(
+                                    text = "Nenhuma viagem encontrada",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "As viagens criadas aparecerão aqui",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        } else {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            LazyColumn(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(14.dp),
+                            ) {
+                                items(
+                                    items = viagens,
+                                    key = { it.id },
+                                ) { item ->
+                                    ViagemListCard(
+                                        item = item,
+                                        onAbrirDetalhes = {
+                                            navController.navigate("viagem_detalhe/${item.id}")
+                                        },
+                                    )
                                 }
                             }
                         }
@@ -282,36 +338,57 @@ fun ViagensScreen(
         }
         composable("viagem_detalhe/{viagemId}") { backStackEntry ->
             val viagemId = backStackEntry.arguments?.getString("viagemId").orEmpty()
-            val reloadTrigger by backStackEntry.savedStateHandle
-                .getStateFlow("reload_viagem_detalhe", 0L)
-                .collectAsStateWithLifecycle()
             ViagemDetalheScreen(
                 viagemId = viagemId,
-                reloadTrigger = reloadTrigger,
                 onNavigateNovaDespesa = { id -> navController.navigate("nova_despesa/$id") },
                 onNavigateNovoAbastecimento = { id -> navController.navigate("nova_abastecimento/$id") },
+                onFinanceiroChanged = onFinanceiroChanged,
+            )
+        }
+        composable("nova_despesa") {
+            NovaDespesaScreen(
+                preselectedViagemId = null,
+                onNavigateBack = {
+                    onFinanceiroChanged()
+                    navController.popBackStack()
+                },
             )
         }
         composable("nova_despesa/{viagemId}") { backStackEntry ->
             val viagemId = backStackEntry.arguments?.getString("viagemId").orEmpty()
+            val parentEntry = remember(backStackEntry) {
+                navController.getBackStackEntry("viagem_detalhe/$viagemId")
+            }
+            val parentViewModel: ViagemDetalheViewModel = viewModel(viewModelStoreOwner = parentEntry)
             NovaDespesaScreen(
-                viagemId = viagemId,
+                preselectedViagemId = viagemId,
                 onNavigateBack = {
-                    navController.previousBackStackEntry
-                        ?.savedStateHandle
-                        ?.set("reload_viagem_detalhe", System.currentTimeMillis())
+                    parentViewModel.loadViagem(viagemId)
+                    onFinanceiroChanged()
+                    navController.popBackStack()
+                },
+            )
+        }
+        composable("nova_abastecimento") {
+            NovaAbastecimentoScreen(
+                preselectedViagemId = null,
+                onNavigateBack = {
+                    onFinanceiroChanged()
                     navController.popBackStack()
                 },
             )
         }
         composable("nova_abastecimento/{viagemId}") { backStackEntry ->
             val viagemId = backStackEntry.arguments?.getString("viagemId").orEmpty()
+            val parentEntry = remember(backStackEntry) {
+                navController.getBackStackEntry("viagem_detalhe/$viagemId")
+            }
+            val parentViewModel: ViagemDetalheViewModel = viewModel(viewModelStoreOwner = parentEntry)
             NovaAbastecimentoScreen(
-                viagemId = viagemId,
+                preselectedViagemId = viagemId,
                 onNavigateBack = {
-                    navController.previousBackStackEntry
-                        ?.savedStateHandle
-                        ?.set("reload_viagem_detalhe", System.currentTimeMillis())
+                    parentViewModel.loadViagem(viagemId)
+                    onFinanceiroChanged()
                     navController.popBackStack()
                 },
             )
@@ -320,71 +397,82 @@ fun ViagensScreen(
 }
 
 @Composable
-fun FinanceiroScreen(
-    reloadNonce: Int = 0,
-    viewModel: FinanceiroViewModel = viewModel(),
+private fun ViagemListCard(
+    item: Viagem,
+    onAbrirDetalhes: () -> Unit,
 ) {
-    val loading by viewModel.loading.collectAsStateWithLifecycle()
-    val error by viewModel.error.collectAsStateWithLifecycle()
-    val resumos by viewModel.resumos.collectAsStateWithLifecycle()
-
-    LaunchedEffect(Unit) {
-        viewModel.loadResumo()
-    }
-    LaunchedEffect(reloadNonce) {
-        if (reloadNonce > 0) {
-            viewModel.loadResumo()
-        }
-    }
-
-    val moneyFormat = remember {
-        NumberFormat.getCurrencyInstance(Locale.forLanguageTag("pt-BR")).apply {
-            minimumFractionDigits = 2
-            maximumFractionDigits = 2
-        }
-    }
-
-    when {
-        loading -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(text = "Carregando...")
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = "${item.origem.ifBlank { "-" }} → ${item.destino.ifBlank { "-" }}",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = "Cliente: ${item.cliente.ifBlank { "-" }}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                val cargaFmt = humanizeTipoCarga(item.tipoCarga)
+                val tonFmt = formatToneladas(item.numeroToneladas).let { t ->
+                    if (t == "-") "—" else t
+                }
+                Text(
+                    text = "Carga: $cargaFmt • $tonFmt",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
-        }
-        error != null -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(text = error.orEmpty())
-            }
-        }
-        else -> {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                contentPadding = PaddingValues(vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                items(
-                    items = resumos,
-                    key = { it.viagemId },
-                ) { item ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp)) {
-                            Text(text = "Motorista: ${item.motoristaNome}")
-                            Text(text = "Caminhão: ${item.caminhaoPlaca}")
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(text = "Bruto: ${moneyFormat.format(item.valorBruto)}")
-                            Text(text = "Despesas: ${moneyFormat.format(item.totalDespesas)}")
-                            Text(text = "Abastecimento: ${moneyFormat.format(item.totalAbastecimentos)}")
-                            Text(
-                                text = "Líquido: ${moneyFormat.format(item.valorLiquido)}",
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
-                    }
+                Text(
+                    text = formatBrl(item.valorBruto),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    StatusBadge(status = item.status)
+                    Text(
+                        text = formatIsoDateTimeBr(item.dataInicio),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
+            OutlinedButton(
+                onClick = onAbrirDetalhes,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+            ) {
+                Text("Abrir detalhes")
+            }
         }
     }
+}
+
+private fun humanizeTipoCarga(raw: String): String {
+    if (raw.isBlank()) return "-"
+    return raw.split("_")
+        .filter { it.isNotBlank() }
+        .joinToString(" ") { part ->
+            part.lowercase(Locale.getDefault()).replaceFirstChar { it.uppercase(Locale.getDefault()) }
+        }
 }
 
 @Preview(showBackground = true)

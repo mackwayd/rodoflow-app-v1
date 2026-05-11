@@ -5,7 +5,7 @@ import com.example.rodoflow.data.api.RetrofitInstance
 import com.example.rodoflow.data.model.ResumoViagem
 import com.example.rodoflow.data.model.SaldoEmpresaResponse
 import com.example.rodoflow.data.model.SaldoMotorista
-import android.util.Log
+import com.example.rodoflow.AppLog
 import com.google.gson.Gson
 import com.google.gson.JsonElement
 import com.google.gson.JsonParser
@@ -27,7 +27,7 @@ class FinanceiroRepository(
 
     suspend fun getSaldo(): List<SaldoMotorista> {
         val json = apiService.getSaldo().string()
-        Log.d("HOME_JSON", json)
+        AppLog.d("HOME_JSON", json)
         val saldoResponse = gson.fromJson(json, SaldoEmpresaResponse::class.java)
         val saldo = saldoResponse.saldoEmpresa.toDoubleOrNull() ?: 0.0
         return listOf(

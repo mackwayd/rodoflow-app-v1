@@ -2,6 +2,7 @@ package com.example.rodoflow.data.model
 
 data class FinalizarViagemRequest(
     val teveQuebra: Boolean,
-    val toneladasFinais: Double? = null,
+    val kgPerdido: Double? = null,
+    val valorQuebra: Double? = null,
     val observacaoQuebra: String? = null,
 )

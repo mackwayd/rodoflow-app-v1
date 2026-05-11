@@ -2,9 +2,11 @@ package com.example.rodoflow.ui.viagens
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
+import com.example.rodoflow.AppLog
 import androidx.lifecycle.viewModelScope
 import com.example.rodoflow.data.model.Viagem
 import com.example.rodoflow.data.repository.ViagemRepository
+import com.example.rodoflow.ui.util.userMessageForThrowable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -45,27 +47,41 @@ class ViagemDetalheViewModel(
     fun finalizarViagem(
         viagemId: String,
         teveQuebra: Boolean,
-        toneladasFinais: Double? = null,
+        kgPerdido: Double? = null,
+        valorQuebra: Double? = null,
         observacaoQuebra: String? = null,
+        onSuccess: () -> Unit = {},
     ) {
         viewModelScope.launch {
             _isFinalizando.value = true
             _actionError.value = null
+            AppLog.d(
+                "FINALIZAR_VIAGEM",
+                "iniciando finalizar viagemId=$viagemId teveQuebra=$teveQuebra " +
+                    "kgPerdido=$kgPerdido valorQuebra=$valorQuebra " +
+                    "observacaoQuebra=${observacaoQuebra?.take(80)}",
+            )
             try {
                 repository.finalizarViagem(
                     id = viagemId,
                     teveQuebra = teveQuebra,
-                    toneladasFinais = toneladasFinais,
+                    kgPerdido = kgPerdido,
+                    valorQuebra = valorQuebra,
                     observacaoQuebra = observacaoQuebra,
                 )
+                AppLog.d("FINALIZAR_VIAGEM", "sucesso para viagemId=$viagemId")
                 loadViagem(viagemId)
+                onSuccess()
             } catch (e: HttpException) {
-                val body = e.response()?.errorBody()?.string().orEmpty()
-                Log.e("FINALIZAR_VIAGEM", body.ifBlank { e.message() })
-                _actionError.value = "Não foi possível finalizar a viagem. Verifique os dados e tente novamente."
+                val errorBody = e.response()?.errorBody()?.string()
+                Log.e(
+                    "FINALIZAR_VIAGEM",
+                    "HTTP ${e.code()} | body=${errorBody ?: e.message()}",
+                )
+                _actionError.value = userMessageForThrowable(e)
             } catch (e: Exception) {
-                Log.e("FINALIZAR_VIAGEM", e.toString(), e)
-                _actionError.value = "Erro inesperado ao finalizar a viagem. Tente novamente."
+                Log.e("FINALIZAR_VIAGEM", "exceção inesperada: $e", e)
+                _actionError.value = userMessageForThrowable(e)
             } finally {
                 _isFinalizando.value = false
             }

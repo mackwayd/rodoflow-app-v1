@@ -1,6 +1,6 @@
 package com.example.rodoflow.data.repository
 
-import android.util.Log
+import com.example.rodoflow.AppLog
 import com.example.rodoflow.data.api.ApiService
 import com.example.rodoflow.data.api.RetrofitInstance
 import com.example.rodoflow.data.model.CreateAbastecimentoRequest
@@ -21,15 +21,17 @@ class ViagemRepository(
     suspend fun finalizarViagem(
         id: String,
         teveQuebra: Boolean,
-        toneladasFinais: Double? = null,
+        kgPerdido: Double? = null,
+        valorQuebra: Double? = null,
         observacaoQuebra: String? = null,
     ) {
         val body = FinalizarViagemRequest(
             teveQuebra = teveQuebra,
-            toneladasFinais = toneladasFinais,
+            kgPerdido = kgPerdido,
+            valorQuebra = valorQuebra,
             observacaoQuebra = observacaoQuebra,
         )
-        Log.d("FINALIZAR_VIAGEM_BODY", body.toString())
+        AppLog.d("FINALIZAR_VIAGEM_BODY", body.toString())
         apiService.finalizarViagem(id, body).use { }
     }
 
@@ -57,7 +59,7 @@ class ViagemRepository(
             tipoCarga = tipoCarga,
             kmInicial = kmInicial,
         )
-        Log.d("CREATE_VIAGEM_BODY", body.toString())
+        AppLog.d("CREATE_VIAGEM_BODY", body.toString())
         apiService.createViagem(body).use { }
     }
 
@@ -67,6 +69,7 @@ class ViagemRepository(
         tipo: String,
         data: String,
         descricao: String?,
+        viagemId: String? = null,
     ) {
         val body = CreateDespesaRequest(
             caminhaoId = caminhaoId,
@@ -74,24 +77,27 @@ class ViagemRepository(
             tipo = tipo,
             data = data,
             descricao = descricao,
+            viagemId = viagemId,
         )
-        Log.d("CREATE_DESPESA_BODY", body.toString())
+        AppLog.d("CREATE_DESPESA_BODY", body.toString())
         apiService.createDespesa(body).use { }
     }
 
     suspend fun createAbastecimento(
         caminhaoId: String,
         litros: Double,
-        valorTotal: Double,
+        valorLitro: Double,
         data: String,
+        viagemId: String? = null,
     ) {
         val body = CreateAbastecimentoRequest(
             caminhaoId = caminhaoId,
             litros = litros,
-            valorTotal = valorTotal,
+            valorLitro = valorLitro,
             data = data,
+            viagemId = viagemId,
         )
-        Log.d("CREATE_ABASTECIMENTO_BODY", body.toString())
+        AppLog.d("CREATE_ABASTECIMENTO_BODY", body.toString())
         apiService.createAbastecimento(body).use { }
     }
 }

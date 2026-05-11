@@ -1,5 +1,6 @@
 package com.example.rodoflow.ui.financeiro
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.rodoflow.data.model.ResumoViagem
@@ -16,8 +17,8 @@ class FinanceiroViewModel(
     private val _loading = MutableStateFlow(false)
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
 
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
+    private val _loadFailed = MutableStateFlow(false)
+    val loadFailed: StateFlow<Boolean> = _loadFailed.asStateFlow()
 
     private val _resumos = MutableStateFlow<List<ResumoViagem>>(emptyList())
     val resumos: StateFlow<List<ResumoViagem>> = _resumos.asStateFlow()
@@ -25,11 +26,12 @@ class FinanceiroViewModel(
     fun loadResumo() {
         viewModelScope.launch {
             _loading.value = true
-            _error.value = null
+            _loadFailed.value = false
             try {
                 _resumos.value = repository.getResumo()
             } catch (e: Exception) {
-                _error.value = e.message ?: "Não foi possível carregar o resumo."
+                Log.e("FINANCEIRO_LOAD", "loadResumo falhou: $e", e)
+                _loadFailed.value = true
             } finally {
                 _loading.value = false
             }
