@@ -9,7 +9,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 object RetrofitInstance {
 
     // Emulador: 10.0.2.2 = host. Físico: IP da máquina. Trailing slash obrigatório para Retrofit.
-    private const val BASE_URL = "http://10.0.2.2:3000/"
+    private const val BASE_URL = "http://186.208.159.187:8082/"
 
     private val okHttpClient: OkHttpClient by lazy {
         val builder = OkHttpClient.Builder()
