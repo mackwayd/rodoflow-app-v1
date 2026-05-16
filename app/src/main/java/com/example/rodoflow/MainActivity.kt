@@ -13,12 +13,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -38,8 +42,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.outlined.AddRoad
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -59,16 +69,19 @@ import com.example.rodoflow.ui.components.StatusBadge
 import com.example.rodoflow.ui.despesas.NovaDespesaScreen
 import com.example.rodoflow.ui.financeiro.FinanceiroScreen
 import com.example.rodoflow.ui.home.HomeScreen
+import com.example.rodoflow.ui.theme.AppButtonShape
+import com.example.rodoflow.ui.theme.AppCardShape
 import com.example.rodoflow.ui.theme.RodoFlowTheme
 import com.example.rodoflow.ui.util.formatBrl
 import com.example.rodoflow.ui.util.formatIsoDateTimeBr
+import com.example.rodoflow.ui.util.formatRouteSegment
 import com.example.rodoflow.ui.util.formatToneladas
+import com.example.rodoflow.ui.util.humanizeTipoCarga
 import com.example.rodoflow.ui.viagens.NovaViagemScreen
 import com.example.rodoflow.ui.viagens.ViagemDetalheScreen
 import com.example.rodoflow.ui.viagens.ViagemDetalheViewModel
 import com.example.rodoflow.ui.viagens.ViagensViewModel
 import kotlinx.coroutines.launch
-import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -126,8 +139,13 @@ fun RodoFlowApp() {
                                     BottomTab.Financeiro -> financeiroReloadNonce++
                                 }
                             },
+                            icon = {
+                                Icon(
+                                    imageVector = tab.icon,
+                                    contentDescription = null,
+                                )
+                            },
                             label = { Text(text = tab.label) },
-                            icon = {}
                         )
                     }
                 }
@@ -185,10 +203,10 @@ fun RodoFlowApp() {
     }
 }
 
-enum class BottomTab(val label: String) {
-    Home("Home"),
-    Viagens("Viagens"),
-    Financeiro("Financeiro")
+enum class BottomTab(val label: String, val icon: ImageVector) {
+    Home("Home", Icons.Filled.Home),
+    Viagens("Viagens", Icons.AutoMirrored.Filled.List),
+    Financeiro("Financeiro", Icons.Filled.AccountBalance),
 }
 
 @Composable
@@ -260,7 +278,10 @@ fun ViagensScreen(
                 loading && viagens.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator()
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                strokeWidth = 2.dp,
+                            )
                             Text(
                                 text = "Carregando viagens...",
                                 modifier = Modifier.padding(top = 12.dp),
@@ -277,15 +298,24 @@ fun ViagensScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(16.dp),
+                            .padding(horizontal = 16.dp, vertical = 18.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
                         Button(
                             onClick = { navController.navigate("nova_viagem") },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(52.dp),
+                                .height(54.dp),
+                            shape = AppButtonShape,
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
                         ) {
-                            Text("+ Nova Viagem")
+                            Icon(
+                                Icons.Outlined.AddRoad,
+                                contentDescription = null,
+                                modifier = Modifier.size(22.dp),
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text("Nova viagem")
                         }
 
                         if (viagens.isEmpty()) {
@@ -401,22 +431,27 @@ private fun ViagemListCard(
     item: Viagem,
     onAbrirDetalhes: () -> Unit,
 ) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = AppCardShape,
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            val origemFmt = formatRouteSegment(item.origem.ifBlank { "-" })
+            val destinoFmt = formatRouteSegment(item.destino.ifBlank { "-" })
             Text(
-                text = "${item.origem.ifBlank { "-" }} → ${item.destino.ifBlank { "-" }}",
+                text = "$origemFmt → $destinoFmt",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    text = "Cliente: ${item.cliente.ifBlank { "-" }}",
+                    text = "Cliente: ${formatRouteSegment(item.cliente.ifBlank { "-" })}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -430,7 +465,9 @@ private fun ViagemListCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -459,20 +496,12 @@ private fun ViagemListCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),
+                shape = AppButtonShape,
             ) {
                 Text("Abrir detalhes")
             }
         }
     }
-}
-
-private fun humanizeTipoCarga(raw: String): String {
-    if (raw.isBlank()) return "-"
-    return raw.split("_")
-        .filter { it.isNotBlank() }
-        .joinToString(" ") { part ->
-            part.lowercase(Locale.getDefault()).replaceFirstChar { it.uppercase(Locale.getDefault()) }
-        }
 }
 
 @Preview(showBackground = true)

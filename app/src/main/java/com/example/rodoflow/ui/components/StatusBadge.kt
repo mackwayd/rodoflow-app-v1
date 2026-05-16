@@ -10,15 +10,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.rodoflow.ui.theme.RodoFlowBlue
+import com.example.rodoflow.ui.theme.RodoFlowBlueMuted
+import java.util.Locale
 
 /**
  * Cores oficiais dos status operacionais do RodoFlow.
  * Reutilizadas em Home, Financeiro e Viagem detalhe para manter consistência.
  */
-val StatusEmAndamentoColor = Color(0xFF1565C0)
+val StatusEmAndamentoColor = RodoFlowBlue
 val StatusFinalizadaColor = Color(0xFF2E7D32)
-val StatusPagaColor = Color(0xFF6A1B9A)
-val StatusNeutroColor = Color(0xFF616161)
+val StatusPagaColor = RodoFlowBlueMuted
+val StatusNeutroColor = Color(0xFF64748B)
 
 /** Verde para saldo / pagamento positivo (resultado favorável). */
 val SaldoPositivoColor = Color(0xFF2E7D32)
@@ -26,14 +29,31 @@ val SaldoPositivoColor = Color(0xFF2E7D32)
 /** Vermelho para saldo negativo. */
 val SaldoNegativoColor = Color(0xFFC62828)
 
+private fun normalizedStatusKey(status: String): String =
+    status.trim().uppercase(Locale.ROOT).replace(" ", "_")
+
 fun statusDisplayLabel(status: String): String {
-    val t = status.trim()
-    if (t.isEmpty() || t.equals("SEM_STATUS", ignoreCase = true)) return "PENDENTE"
-    return t
+    val key = normalizedStatusKey(status)
+    if (key.isEmpty() || key == "SEM_STATUS") return "Pendente"
+    return when (key) {
+        "EM_ANDAMENTO" -> "Em andamento"
+        "FINALIZADA" -> "Finalizada"
+        "PAGA" -> "Paga"
+        "PAGO" -> "Pago"
+        "PENDENTE" -> "Pendente"
+        else -> humanizeRawStatus(status.trim())
+    }
 }
 
+private fun humanizeRawStatus(raw: String): String =
+    raw.split("_").filter { it.isNotBlank() }.joinToString(" ") { part ->
+        part.lowercase(Locale.getDefault()).replaceFirstChar { c ->
+            if (c.isLowerCase()) c.titlecase(Locale.getDefault()) else c.toString()
+        }
+    }.ifBlank { raw }
+
 fun statusColor(status: String): Color {
-    val key = statusDisplayLabel(status).uppercase()
+    val key = normalizedStatusKey(status)
     return when (key) {
         "EM_ANDAMENTO" -> StatusEmAndamentoColor
         "FINALIZADA" -> StatusFinalizadaColor
@@ -62,7 +82,7 @@ fun StatusBadge(
         style = MaterialTheme.typography.labelMedium,
         fontWeight = FontWeight.SemiBold,
         modifier = modifier
-            .background(statusColor(status), RoundedCornerShape(8.dp))
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .background(statusColor(status), RoundedCornerShape(50))
+            .padding(horizontal = 12.dp, vertical = 6.dp),
     )
 }

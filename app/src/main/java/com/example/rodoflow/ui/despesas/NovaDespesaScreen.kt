@@ -14,16 +14,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
@@ -49,11 +48,16 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.rodoflow.ui.util.formatRouteSegment
+import com.example.rodoflow.ui.util.humanizeTipoDespesa
 import com.example.rodoflow.data.model.Viagem
 import com.example.rodoflow.ui.components.LocalSnackbar
+import com.example.rodoflow.ui.theme.AppBannerShape
+import com.example.rodoflow.ui.theme.AppButtonShape
+import com.example.rodoflow.ui.theme.AppCardShape
 
-private val InfoSurface = Color(0xFFE3F2FD)
-private val InfoOnSurface = Color(0xFF0D47A1)
+private val InfoSurface = Color(0xFFD9EFFF)
+private val InfoOnSurface = Color(0xFF004B7A)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,14 +93,18 @@ fun NovaDespesaScreen(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .imePadding()
-            .padding(16.dp),
+            .padding(horizontal = 20.dp, vertical = 18.dp),
     ) {
         Text(
             text = "Nova despesa",
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.SemiBold,
         )
-        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "Registre um gasto vinculado à viagem atual ou como avulso.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
 
         VinculoSelector(
             podeVincular = podeVincular,
@@ -144,7 +152,7 @@ fun NovaDespesaScreen(
             onExpandedChange = { tipoExpanded = !tipoExpanded },
         ) {
             OutlinedTextField(
-                value = tipo,
+                value = humanizeTipoDespesa(tipo),
                 onValueChange = {},
                 readOnly = true,
                 modifier = Modifier
@@ -172,7 +180,7 @@ fun NovaDespesaScreen(
             ) {
                 tiposDespesa.forEach { option ->
                     DropdownMenuItem(
-                        text = { Text(option) },
+                        text = { Text(humanizeTipoDespesa(option)) },
                         onClick = {
                             tipo = option
                             tipoExpanded = false
@@ -227,7 +235,9 @@ fun NovaDespesaScreen(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp),
+                .height(54.dp),
+            shape = AppButtonShape,
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -282,13 +292,11 @@ private fun VinculoSelector(
             }
         }
         podeVincular -> {
-            Card(
+            ElevatedCard(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                ),
+                shape = AppCardShape,
             ) {
-                Column(modifier = Modifier.padding(12.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Text(
                         text = "Vínculo com viagem",
                         style = MaterialTheme.typography.titleSmall,
@@ -296,7 +304,11 @@ private fun VinculoSelector(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     val labelVincular = viagemLink
-                        ?.let { "Vincular à viagem ${it.origem} → ${it.destino}" }
+                        ?.let {
+                            val o = formatRouteSegment(it.origem.ifBlank { "-" })
+                            val d = formatRouteSegment(it.destino.ifBlank { "-" })
+                            "Vincular à viagem $o → $d"
+                        }
                         ?: preselectedViagemId
                             ?.takeIf { it.isNotBlank() }
                             ?.let { "Vincular à viagem (${it.take(8)}…)" }
@@ -351,7 +363,7 @@ private fun InfoBanner(text: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(InfoSurface, RoundedCornerShape(8.dp))
+            .background(InfoSurface, AppBannerShape)
             .padding(12.dp),
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(8.dp),

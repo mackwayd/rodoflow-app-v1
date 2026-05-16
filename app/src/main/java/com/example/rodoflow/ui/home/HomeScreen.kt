@@ -1,6 +1,8 @@
 package com.example.rodoflow.ui.home
 
 import com.example.rodoflow.AppLog
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,14 +13,22 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AddRoad
+import androidx.compose.material.icons.outlined.LocalGasStation
+import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -39,7 +49,11 @@ import com.example.rodoflow.ui.components.StatusEmAndamentoColor
 import com.example.rodoflow.ui.components.StatusFinalizadaColor
 import com.example.rodoflow.ui.components.StatusPagaColor
 import com.example.rodoflow.ui.components.saldoResultadoColor
+import com.example.rodoflow.ui.theme.AppButtonShape
+import com.example.rodoflow.ui.theme.AppCardShape
+import com.example.rodoflow.ui.theme.AppCompactCardShape
 import com.example.rodoflow.ui.util.formatBrl
+import com.example.rodoflow.ui.util.formatRouteSegment
 import com.example.rodoflow.ui.util.formatToneladas
 
 @Composable
@@ -120,8 +134,8 @@ private fun DashboardContent(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         item {
             DashboardHeader(
@@ -161,29 +175,41 @@ private fun DashboardHeader(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = "Painel do motorista",
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold,
             )
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Operacional → custos → resultado",
+                text = "Operacional · custos · resultado",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Text(
-                text = "Saldo da empresa: ${formatBrl(saldoEmpresaTotal)}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = "Saldo da empresa ",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = formatBrl(saldoEmpresaTotal),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
         }
         if (isRefreshing) {
             CircularProgressIndicator(
-                modifier = Modifier.padding(start = 8.dp),
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .size(22.dp),
                 strokeWidth = 2.dp,
             )
         }
@@ -197,6 +223,7 @@ private fun ViagemAtualCard(
 ) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
+        shape = AppCardShape,
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
@@ -204,7 +231,7 @@ private fun ViagemAtualCard(
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             if (viagem == null) {
                 EmptyViagemAtual()
@@ -223,7 +250,7 @@ private fun EmptyViagemAtual() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 16.dp),
+            .padding(vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
@@ -231,9 +258,9 @@ private fun EmptyViagemAtual() {
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Medium,
         )
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "Inicie uma nova viagem pelo botão abaixo.",
+            text = "Inicie uma nova viagem pelo atalho abaixo.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -245,26 +272,30 @@ private fun ViagemAtualBody(
     viagem: Viagem,
     onAbrir: (String) -> Unit,
 ) {
+    val origem = formatRouteSegment(viagem.origem.ifBlank { "-" })
+    val destino = formatRouteSegment(viagem.destino.ifBlank { "-" })
     Text(
-        text = "${viagem.origem.ifBlank { "-" }} → ${viagem.destino.ifBlank { "-" }}",
+        text = "$origem → $destino",
         style = MaterialTheme.typography.titleLarge,
         fontWeight = FontWeight.SemiBold,
     )
+    Spacer(modifier = Modifier.height(12.dp))
+    InfoLine(label = "Cliente", value = formatRouteSegment(viagem.cliente.ifBlank { "-" }))
     Spacer(modifier = Modifier.height(10.dp))
-    InfoLine(label = "Cliente", value = viagem.cliente.ifBlank { "-" })
-    Spacer(modifier = Modifier.height(8.dp))
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(
-            text = "Status:",
+            text = "Status",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         StatusBadge(status = viagem.status)
     }
-    Spacer(modifier = Modifier.height(10.dp))
+    Spacer(modifier = Modifier.height(12.dp))
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    Spacer(modifier = Modifier.height(12.dp))
     val valorBruto = viagem.valorBrutoEfetivo ?: viagem.valorBruto
     Text(
         text = "Valor bruto",
@@ -273,21 +304,22 @@ private fun ViagemAtualBody(
     )
     Text(
         text = formatBrl(valorBruto),
-        style = MaterialTheme.typography.titleLarge,
+        style = MaterialTheme.typography.headlineSmall,
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.primary,
     )
-    Spacer(modifier = Modifier.height(6.dp))
+    Spacer(modifier = Modifier.height(8.dp))
     InfoLine(
         label = "Toneladas",
         value = formatToneladas(viagem.numeroToneladas),
     )
-    Spacer(modifier = Modifier.height(12.dp))
+    Spacer(modifier = Modifier.height(14.dp))
     OutlinedButton(
         onClick = { onAbrir(viagem.id) },
         modifier = Modifier
             .fillMaxWidth()
             .height(48.dp),
+        shape = AppButtonShape,
     ) {
         Text(text = "Abrir detalhes da viagem")
     }
@@ -295,16 +327,17 @@ private fun ViagemAtualBody(
 
 @Composable
 private fun FinanceiroCard(viagem: Viagem) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = AppCardShape) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
                 text = "Custos e resultado",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
             InfoLine(label = "Total despesas", value = formatBrl(viagem.totalDespesas))
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             InfoLine(label = "Total abastecimentos", value = formatBrl(viagem.totalAbastecimentos))
             Spacer(modifier = Modifier.height(16.dp))
             Text(
@@ -330,8 +363,11 @@ private fun IndicadoresRapidosRow(statusCounts: StatusCounts) {
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
             IndicadorCard(
                 modifier = Modifier.weight(1f),
                 label = "Em andamento",
@@ -363,27 +399,40 @@ private fun IndicadorCard(
 ) {
     Card(
         modifier = modifier,
+        shape = AppCompactCardShape,
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
+        ),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.55f),
         ),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(horizontal = 8.dp, vertical = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            Box(
+                modifier = Modifier
+                    .padding(bottom = 6.dp)
+                    .width(40.dp)
+                    .height(3.dp)
+                    .background(accent, RoundedCornerShape(2.dp)),
+            )
             Text(
                 text = count.toString(),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = accent,
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium,
             )
         }
     }
@@ -396,52 +445,64 @@ private fun AcoesRapidasSection(
     onNovoAbastecimento: (String?) -> Unit,
     onNovaDespesa: (String?) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
             text = "Atalhos",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
-        Button(
+        OutlinedButton(
             onClick = { onNovaDespesa(viagemAtual?.id) },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-            ),
+                .height(54.dp),
+            shape = AppButtonShape,
         ) {
-            Text(text = "Nova despesa", style = MaterialTheme.typography.titleMedium)
+            Icon(
+                Icons.Outlined.ReceiptLong,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(text = "Nova despesa", style = MaterialTheme.typography.titleSmall)
         }
-        Button(
+        OutlinedButton(
             onClick = { onNovoAbastecimento(viagemAtual?.id) },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-            ),
+                .height(54.dp),
+            shape = AppButtonShape,
         ) {
-            Text(text = "Novo abastecimento", style = MaterialTheme.typography.titleMedium)
+            Icon(
+                Icons.Outlined.LocalGasStation,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(text = "Novo abastecimento", style = MaterialTheme.typography.titleSmall)
         }
         Button(
             onClick = onNovaViagem,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(12.dp),
+                .height(54.dp),
+            shape = AppButtonShape,
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
         ) {
-            Text(text = "Nova viagem", style = MaterialTheme.typography.titleMedium)
+            Icon(
+                Icons.Outlined.AddRoad,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(text = "Nova viagem", style = MaterialTheme.typography.titleSmall)
         }
         if (viagemAtual == null) {
             Text(
                 text = "Sem viagem em andamento. Despesas e abastecimentos serão registrados como avulsos no caixa geral.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
             )
         }
     }
@@ -462,4 +523,3 @@ private fun InfoLine(label: String, value: String) {
         )
     }
 }
-

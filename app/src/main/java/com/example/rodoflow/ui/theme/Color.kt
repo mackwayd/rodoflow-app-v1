@@ -2,10 +2,23 @@ package com.example.rodoflow.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+/** Azul vibrante oficial do ícone (“sky blue”) */
+val RodoFlowBlue = Color(0xFF0096FF)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+/** Variação mais escura para fundos/container e primário sobre claros */
+val RodoFlowBlueMuted = Color(0xFF0070C4)
+
+/** Azul navy da “estrada” do logo — superfícies escuras */
+val RodoFlowNavy = Color(0xFF142438)
+
+/** Superfícies um pouco mais claras sobre o navy */
+val RodoFlowNavyElevated = Color(0xFF1C2E42)
+
+/** Preto da base do logo */
+val RodoFlowBlack = Color(0xFF000000)
+
+/** Branco de “RODO” e elementos claros */
+val RodoFlowWhite = Color(0xFFFFFFFF)
+
+/** Fundo intermediário útil para cards sobre preto */
+val RodoFlowSurfaceDark = Color(0xFF0D1624)

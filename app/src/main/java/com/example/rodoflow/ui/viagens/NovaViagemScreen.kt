@@ -16,9 +16,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,7 +42,24 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.rodoflow.ui.components.LocalSnackbar
+import com.example.rodoflow.ui.theme.AppButtonShape
+import com.example.rodoflow.ui.theme.AppCardShape
 import com.example.rodoflow.ui.util.formatBrl
+import com.example.rodoflow.ui.util.humanizeTipoCarga
+
+private data class CargaTipoOption(val api: String, val label: String)
+
+private val TiposCargaOpcoes = listOf(
+    CargaTipoOption("SOJA", "Soja"),
+    CargaTipoOption("MILHO", "Milho"),
+    CargaTipoOption("FERTILIZANTE", "Fertilizante"),
+    CargaTipoOption("RAÇÃO", "Ração"),
+    CargaTipoOption("OUTROS", "Outros"),
+)
+
+private fun labelTipoCarga(api: String): String =
+    TiposCargaOpcoes.find { it.api.equals(api.trim(), ignoreCase = true) }?.label
+        ?: humanizeTipoCarga(api)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,7 +84,6 @@ fun NovaViagemScreen(
     val valorTonelada = valorToneladaText.replace(',', '.').toDoubleOrNull()
     val valorBrutoEstimado = (numeroToneladas ?: 0.0) * (valorTonelada ?: 0.0)
 
-    val tiposCarga = listOf("SOJA", "MILHO", "FERTILIZANTE", "RAÇÃO", "OUTROS")
     val focusManager = LocalFocusManager.current
 
     Column(
@@ -73,13 +91,18 @@ fun NovaViagemScreen(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .imePadding()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(horizontal = 20.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text(
             text = "Nova viagem",
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            text = "Preencha os dados da rota e da carga.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         OutlinedTextField(
             value = origem,
@@ -170,7 +193,7 @@ fun NovaViagemScreen(
             onExpandedChange = { tipoCargaExpanded = !tipoCargaExpanded },
         ) {
             OutlinedTextField(
-                value = tipoCarga,
+                value = labelTipoCarga(tipoCarga),
                 onValueChange = { },
                 readOnly = true,
                 modifier = Modifier
@@ -188,11 +211,11 @@ fun NovaViagemScreen(
                 expanded = tipoCargaExpanded,
                 onDismissRequest = { tipoCargaExpanded = false },
             ) {
-                tiposCarga.forEach { tipo ->
+                TiposCargaOpcoes.forEach { opt ->
                     DropdownMenuItem(
-                        text = { Text(tipo) },
+                        text = { Text(opt.label) },
                         onClick = {
-                            tipoCarga = tipo
+                            tipoCarga = opt.api
                             tipoCargaExpanded = false
                         },
                     )
@@ -213,10 +236,30 @@ fun NovaViagemScreen(
                 onDone = { focusManager.clearFocus() },
             ),
         )
-        Text(text = "Valor bruto estimado: ${formatBrl(valorBrutoEstimado)}")
-        Spacer(modifier = Modifier.height(8.dp))
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = AppCardShape,
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Valor bruto estimado",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = formatBrl(valorBrutoEstimado),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
         errorMessage?.let { msg ->
-            Text(text = msg)
+            Text(
+                text = msg,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+            )
         }
         Button(
             enabled = !saving,
@@ -272,7 +315,9 @@ fun NovaViagemScreen(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp),
+                .height(54.dp),
+            shape = AppButtonShape,
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),

@@ -16,12 +16,18 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.LocalGasStation
+import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -45,6 +51,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.rodoflow.ui.theme.AppButtonShape
+import com.example.rodoflow.ui.theme.AppCardShape
 import com.example.rodoflow.ui.components.LoadDataErrorPanel
 import com.example.rodoflow.ui.components.LocalSnackbar
 import com.example.rodoflow.ui.components.StatusBadge
@@ -53,7 +61,10 @@ import com.example.rodoflow.ui.util.formatCnpj
 import com.example.rodoflow.ui.util.formatIsoDateTimeBr
 import com.example.rodoflow.ui.util.formatKg
 import com.example.rodoflow.ui.util.formatKm
+import com.example.rodoflow.ui.util.formatRouteSegment
 import com.example.rodoflow.ui.util.formatToneladas
+import com.example.rodoflow.ui.util.humanizeTipoCarga
+import com.example.rodoflow.ui.util.humanizeTipoDespesa
 
 @Composable
 fun ViagemDetalheScreen(
@@ -118,17 +129,33 @@ fun ViagemDetalheScreen(
             }
         }
         viagem != null -> {
-            val viagemAtual = viagem
+            val trip = viagem!!
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp, vertical = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                StatusBadge(status = viagemAtual?.status.orEmpty())
-                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "${formatRouteSegment(trip.origem.ifBlank { "-" })} → ${formatRouteSegment(trip.destino.ifBlank { "-" })}",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(
+                        text = "Status",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    StatusBadge(status = trip.status)
+                }
 
-                if (viagemAtual?.status == "EM_ANDAMENTO") {
+                if (trip.status == "EM_ANDAMENTO") {
                     Button(
                         onClick = {
                             showFinalizarDialog = true
@@ -141,61 +168,60 @@ fun ViagemDetalheScreen(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(52.dp),
+                            .height(54.dp),
+                        shape = AppButtonShape,
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
                     ) {
                         Text("Finalizar viagem")
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
                 }
 
                 SectionCard(title = "Operacional") {
-                    DetailLine(label = "Origem", value = viagemAtual?.origem.orEmpty())
-                    DetailLine(label = "Destino", value = viagemAtual?.destino.orEmpty())
-                    DetailLine(label = "Cliente", value = viagemAtual?.cliente.orEmpty())
-                    DetailLine(label = "CNPJ", value = formatCnpj(viagemAtual?.cnpjCliente))
-                    DetailLine(label = "Tipo de carga", value = viagemAtual?.tipoCarga.orEmpty())
+                    DetailLine(label = "Origem", value = formatRouteSegment(trip.origem.ifBlank { "-" }))
+                    DetailLine(label = "Destino", value = formatRouteSegment(trip.destino.ifBlank { "-" }))
+                    DetailLine(label = "Cliente", value = formatRouteSegment(trip.cliente.ifBlank { "-" }))
+                    DetailLine(label = "CNPJ", value = formatCnpj(trip.cnpjCliente))
+                    DetailLine(label = "Tipo de carga", value = humanizeTipoCarga(trip.tipoCarga))
                     DetailLine(
                         label = "Número toneladas",
-                        value = formatToneladas(viagemAtual?.numeroToneladas ?: 0.0),
+                        value = formatToneladas(trip.numeroToneladas),
                     )
                     DetailLine(
                         label = "Valor tonelada",
-                        value = formatBrl(viagemAtual?.valorTonelada),
+                        value = formatBrl(trip.valorTonelada),
                     )
                     DetailLine(
                         label = "KM inicial",
-                        value = formatKm(viagemAtual?.kmInicial ?: 0.0),
+                        value = formatKm(trip.kmInicial),
                     )
-                    DetailLine(label = "Status", value = viagemAtual?.status.orEmpty())
-                    DetailLine(label = "Data início", value = formatIsoDateTimeBr(viagemAtual?.dataInicio))
-                    DetailLine(label = "Data fim", value = formatIsoDateTimeBr(viagemAtual?.dataFim))
+                    DetailLine(label = "Data início", value = formatIsoDateTimeBr(trip.dataInicio))
+                    DetailLine(label = "Data fim", value = formatIsoDateTimeBr(trip.dataFim))
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
                 SectionCard(title = "Financeiro") {
-                    val percentualMotorista = (viagemAtual?.valorBruto ?: 0.0) * 0.12
+                    val percentualMotorista = trip.valorBruto * 0.12
                     DetailLine(
                         label = "Valor bruto",
-                        value = formatBrl(viagemAtual?.valorBruto),
+                        value = formatBrl(trip.valorBruto),
                     )
                     DetailLine(
                         label = "Total despesas",
-                        value = formatBrl(viagemAtual?.totalDespesas),
+                        value = formatBrl(trip.totalDespesas),
                     )
                     DetailLine(
                         label = "Total abastecimentos",
-                        value = formatBrl(viagemAtual?.totalAbastecimentos),
+                        value = formatBrl(trip.totalAbastecimentos),
                     )
                     DetailLine(
                         label = "Saldo empresa",
-                        value = formatBrl(viagemAtual?.saldoEmpresa),
+                        value = formatBrl(trip.saldoEmpresa),
                     )
                     DetailLine(
                         label = "Percentual motorista (12%)",
                         value = formatBrl(percentualMotorista),
                     )
-                    val temQuebraInfo = viagemAtual?.kgPerdido != null ||
-                        ((viagemAtual?.valorQuebra ?: 0.0) > 0.0)
+                    val temQuebraInfo = trip.kgPerdido != null ||
+                        ((trip.valorQuebra ?: 0.0) > 0.0)
                     if (temQuebraInfo) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
@@ -205,63 +231,81 @@ fun ViagemDetalheScreen(
                         )
                         DetailLine(
                             label = "KG perdido",
-                            value = formatKg(viagemAtual?.kgPerdido),
+                            value = formatKg(trip.kgPerdido),
                         )
                         DetailLine(
                             label = "Valor quebra",
-                            value = formatBrl(viagemAtual?.valorQuebra),
+                            value = formatBrl(trip.valorQuebra),
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
                 SectionCard(title = "Abastecimentos") {
-                    if (viagemAtual?.abastecimentos.isNullOrEmpty()) {
-                        Text(text = "Nenhum abastecimento registrado")
+                    if (trip.abastecimentos.isNullOrEmpty()) {
+                        Text(
+                            text = "Nenhum abastecimento registrado",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     } else {
-                        viagemAtual?.abastecimentos?.forEach { abastecimento ->
+                        trip.abastecimentos.forEach { abastecimento ->
                             DetailLine(label = "Litros", value = "${abastecimento.litros}")
                             DetailLine(
                                 label = "Valor total",
                                 value = formatBrl(abastecimento.valorTotal),
                             )
                             DetailLine(label = "Data", value = formatIsoDateTimeBr(abastecimento.data))
-                            Spacer(modifier = Modifier.height(8.dp))
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 8.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
+                            )
                         }
                     }
-                    Button(
+                    OutlinedButton(
                         onClick = { onNavigateNovoAbastecimento(viagemId) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp),
+                        shape = AppButtonShape,
                     ) {
-                        Text(text = "+ abastecimento")
+                        Icon(Icons.Outlined.LocalGasStation, contentDescription = null)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(text = "Registrar abastecimento")
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
                 SectionCard(title = "Despesas") {
-                    if (viagemAtual?.despesas.isNullOrEmpty()) {
-                        Text(text = "Nenhuma despesa registrada")
+                    if (trip.despesas.isNullOrEmpty()) {
+                        Text(
+                            text = "Nenhuma despesa registrada",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     } else {
-                        viagemAtual?.despesas?.forEach { despesa ->
-                            DetailLine(label = "Tipo", value = despesa.tipo)
+                        trip.despesas.forEach { despesa ->
+                            DetailLine(label = "Tipo", value = humanizeTipoDespesa(despesa.tipo))
                             DetailLine(
                                 label = "Valor",
                                 value = formatBrl(despesa.valor),
                             )
                             DetailLine(label = "Descrição", value = despesa.descricao.orEmpty())
                             DetailLine(label = "Data", value = formatIsoDateTimeBr(despesa.data))
-                            Spacer(modifier = Modifier.height(8.dp))
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 8.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
+                            )
                         }
                     }
-                    Button(
+                    OutlinedButton(
                         onClick = { onNavigateNovaDespesa(viagemId) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp),
+                        shape = AppButtonShape,
                     ) {
-                        Text(text = "+ despesa")
+                        Icon(Icons.Outlined.ReceiptLong, contentDescription = null)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(text = "Registrar despesa")
                     }
                 }
             }
@@ -455,13 +499,17 @@ private fun SectionCard(
     title: String,
     content: @Composable () -> Unit,
 ) {
-    Card(
+    ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = AppCardShape,
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(8.dp))
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(modifier = Modifier.height(10.dp))
             content()
         }
     }
@@ -476,10 +524,12 @@ private fun DetailLine(label: String, value: String) {
         Text(
             text = "$label: ",
             style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
             text = value.ifBlank { "-" },
             style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
         )
     }
 }

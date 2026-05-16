@@ -11,13 +11,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,11 +33,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.rodoflow.data.model.ResumoViagem
+import com.example.rodoflow.ui.theme.AppBannerShape
+import com.example.rodoflow.ui.theme.AppCardShape
 import com.example.rodoflow.ui.components.LoadDataErrorPanel
 import com.example.rodoflow.ui.components.StatusBadge
 import com.example.rodoflow.ui.components.saldoResultadoColor
 import com.example.rodoflow.ui.util.formatBrl
 import com.example.rodoflow.ui.util.formatKg
+import com.example.rodoflow.ui.util.formatRouteSegment
 
 private val WarningSurface = Color(0xFFFFF3E0)
 private val WarningOnSurface = Color(0xFFB45309)
@@ -122,8 +126,8 @@ private fun FinanceiroContent(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         item {
             FinanceiroHeader(isRefreshing = isRefreshing)
@@ -157,11 +161,11 @@ private fun FinanceiroHeader(isRefreshing: Boolean) {
         Column {
             Text(
                 text = "Painel financeiro",
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = "Operacional → custos → resultado",
+                text = "Operacional · custos · resultado",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -173,7 +177,9 @@ private fun FinanceiroHeader(isRefreshing: Boolean) {
         }
         if (isRefreshing) {
             CircularProgressIndicator(
-                modifier = Modifier.padding(start = 8.dp),
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .size(22.dp),
                 strokeWidth = 2.dp,
             )
         }
@@ -182,12 +188,13 @@ private fun FinanceiroHeader(isRefreshing: Boolean) {
 
 @Composable
 private fun ResumoPrincipalCard(totals: FinanceiroTotals) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = AppCardShape) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
                 text = "Resumo",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(modifier = Modifier.height(12.dp))
             ResumoLine(label = "Total bruto", value = formatBrl(totals.valorBrutoEfetivo))
@@ -234,8 +241,9 @@ private fun ResumoLine(
 private fun CustosCard(totals: FinanceiroTotals) {
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = AppCardShape,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f),
         ),
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -258,16 +266,22 @@ private fun CustosCard(totals: FinanceiroTotals) {
 
 @Composable
 private fun ViagemOperacionalCard(resumo: ResumoViagem) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = AppCardShape) {
         Column(modifier = Modifier.padding(20.dp)) {
+            val origemFmt = formatRouteSegment(resumo.origem.ifBlank { "-" })
+            val destinoFmt = formatRouteSegment(resumo.destino.ifBlank { "-" })
             Text(
-                text = "${resumo.origem.ifBlank { "-" }} → ${resumo.destino.ifBlank { "-" }}",
+                text = "$origemFmt → $destinoFmt",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
             )
             Spacer(modifier = Modifier.height(10.dp))
-            ContextLine(label = "Cliente", value = resumo.cliente)
-            Spacer(modifier = Modifier.height(10.dp))
+            ContextLine(label = "Cliente", value = formatRouteSegment(resumo.cliente.ifBlank { "-" }))
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+            )
+            Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = "Valor bruto",
                 style = MaterialTheme.typography.labelMedium,
@@ -275,7 +289,7 @@ private fun ViagemOperacionalCard(resumo: ResumoViagem) {
             )
             Text(
                 text = formatBrl(resumo.valorBrutoEfetivoOrFallback),
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -285,7 +299,7 @@ private fun ViagemOperacionalCard(resumo: ResumoViagem) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    text = "Status financeiro:",
+                    text = "Status financeiro",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -335,7 +349,7 @@ private fun QuebraBanner(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(WarningSurface, RoundedCornerShape(8.dp))
+            .background(WarningSurface, AppBannerShape)
             .padding(12.dp),
     ) {
         Column {
