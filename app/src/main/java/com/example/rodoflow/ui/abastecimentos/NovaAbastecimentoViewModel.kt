@@ -4,8 +4,11 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.example.rodoflow.AppLog
 import androidx.lifecycle.viewModelScope
+import android.net.Uri
+import com.example.rodoflow.data.util.ComprovantePayload
 import com.example.rodoflow.data.model.Viagem
-import com.example.rodoflow.data.repository.ViagemRepository
+import com.example.rodoflow.AppServices
+import com.example.rodoflow.data.repository.OperationResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,11 +18,13 @@ import retrofit2.HttpException
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 
-private const val MOTORISTA_ID = "motorista-1"
-private const val CAMINHAO_ID = "cam-1"
+import com.example.rodoflow.DriverContext
 
 class NovaAbastecimentoViewModel(
-    private val repository: ViagemRepository = ViagemRepository(),
+    private val operations: com.example.rodoflow.data.repository.OutgoingOperationsRepository =
+        AppServices.outgoingOperations,
+    private val readRepository: com.example.rodoflow.data.repository.ViagemRepository =
+        AppServices.viagemRepository,
 ) : ViewModel() {
 
     private val _viagemAtual = MutableStateFlow<Viagem?>(null)
@@ -32,7 +37,7 @@ class NovaAbastecimentoViewModel(
         viewModelScope.launch {
             _carregandoViagemAtual.value = true
             try {
-                val viagens = repository.getViagens(MOTORISTA_ID)
+                val viagens = readRepository.getViagens(DriverContext.motoristaId)
                 _viagemAtual.value = viagens
                     .filter { it.status == "EM_ANDAMENTO" }
                     .maxByOrNull { it.dataInicio }
@@ -49,25 +54,33 @@ class NovaAbastecimentoViewModel(
         litros: Double,
         valorLitro: Double,
         viagemId: String?,
-        onSuccess: (vinculado: Boolean) -> Unit,
+        comprovante: ComprovantePayload?,
+        onSuccess: (vinculado: Boolean, queued: Boolean) -> Unit,
         onError: (String) -> Unit,
     ) {
         viewModelScope.launch {
             AppLog.d(
                 "CREATE_ABASTECIMENTO",
                 "iniciando criar litros=$litros valorLitro=$valorLitro viagemId=$viagemId " +
-                    "caminhaoId=$CAMINHAO_ID",
+                    "caminhaoId=${DriverContext.CAMINHAO_ID} comprovante=${comprovante != null}",
             )
             try {
-                repository.createAbastecimento(
-                    caminhaoId = CAMINHAO_ID,
-                    litros = litros,
-                    valorLitro = valorLitro,
-                    data = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(OffsetDateTime.now()),
-                    viagemId = viagemId,
-                )
-                AppLog.d("CREATE_ABASTECIMENTO", "sucesso vinculado=${viagemId != null}")
-                onSuccess(viagemId != null)
+                when (
+                    operations.createAbastecimento(
+                        caminhaoId = DriverContext.CAMINHAO_ID,
+                        litros = litros,
+                        valorLitro = valorLitro,
+                        data = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(OffsetDateTime.now()),
+                        viagemId = viagemId,
+                        comprovante = comprovante,
+                    )
+                ) {
+                    OperationResult.Sent -> {
+                        AppLog.d("CREATE_ABASTECIMENTO", "sucesso vinculado=${viagemId != null}")
+                        onSuccess(viagemId != null, false)
+                    }
+                    OperationResult.Queued -> onSuccess(viagemId != null, true)
+                }
             } catch (e: HttpException) {
                 val errorBody = e.response()?.errorBody()?.string()
                 Log.e(

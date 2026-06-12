@@ -29,6 +29,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -53,9 +55,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.rodoflow.ui.theme.AppButtonShape
 import com.example.rodoflow.ui.theme.AppCardShape
-import com.example.rodoflow.ui.components.LoadDataErrorPanel
+import com.example.rodoflow.ui.components.AppTopBar
+import com.example.rodoflow.ui.components.CachedDataBanner
+import com.example.rodoflow.ui.components.ComprovanteImage
+import com.example.rodoflow.ui.components.PendingFinalizeBanner
 import com.example.rodoflow.ui.components.LocalSnackbar
+import com.example.rodoflow.ui.util.MSG_OFFLINE_NO_DATA
+import com.example.rodoflow.ui.util.operationSuccessMessage
 import com.example.rodoflow.ui.components.StatusBadge
+import com.example.rodoflow.ui.components.ViagemStatusBanner
 import com.example.rodoflow.ui.util.formatBrl
 import com.example.rodoflow.ui.util.formatCnpj
 import com.example.rodoflow.ui.util.formatIsoDateTimeBr
@@ -69,6 +77,7 @@ import com.example.rodoflow.ui.util.humanizeTipoDespesa
 @Composable
 fun ViagemDetalheScreen(
     viagemId: String,
+    onNavigateBack: () -> Unit = {},
     onNavigateNovaDespesa: (String) -> Unit = {},
     onNavigateNovoAbastecimento: (String) -> Unit = {},
     onFinanceiroChanged: () -> Unit = {},
@@ -77,8 +86,11 @@ fun ViagemDetalheScreen(
     val viagem by viewModel.viagem.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val notFound by viewModel.notFound.collectAsStateWithLifecycle()
+    val offlineNoData by viewModel.offlineNoData.collectAsStateWithLifecycle()
+    val fromCache by viewModel.fromCache.collectAsStateWithLifecycle()
     val isFinalizando by viewModel.isFinalizando.collectAsStateWithLifecycle()
     val actionError by viewModel.actionError.collectAsStateWithLifecycle()
+    val pendingFinalize by viewModel.pendingFinalize.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     val showSnackbar = LocalSnackbar.current
 
@@ -125,14 +137,73 @@ fun ViagemDetalheScreen(
         }
         notFound && viagem == null -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                LoadDataErrorPanel(onRetry = { viewModel.loadViagem(viagemId) })
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(24.dp),
+                ) {
+                    Text(
+                        text = "Viagem não encontrada",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Esta viagem não existe ou foi removida.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = { viewModel.loadViagem(viagemId) }) {
+                        Text("Tentar novamente")
+                    }
+                }
+            }
+        }
+        offlineNoData && viagem == null -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(24.dp),
+                ) {
+                    Text(
+                        text = "Sem conexão",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = MSG_OFFLINE_NO_DATA,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = { viewModel.loadViagem(viagemId) }) {
+                        Text("Tentar novamente")
+                    }
+                }
             }
         }
         viagem != null -> {
             val trip = viagem!!
+            val emAndamento = trip.status == "EM_ANDAMENTO" && !pendingFinalize
+            val valorMotorista = if (trip.valorMotorista > 0.0) {
+                trip.valorMotorista
+            } else {
+                (trip.valorBrutoEfetivo ?: trip.valorBruto) * 0.12
+            }
+            Scaffold(
+                topBar = {
+                    AppTopBar(
+                        title = "Detalhe da viagem",
+                        onNavigateBack = onNavigateBack,
+                    )
+                },
+                contentWindowInsets = ScaffoldDefaults.contentWindowInsets,
+            ) { innerPadding ->
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .padding(innerPadding)
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp, vertical = 18.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -142,6 +213,14 @@ fun ViagemDetalheScreen(
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.SemiBold,
                 )
+                ViagemStatusBanner(status = trip.status)
+                CachedDataBanner(
+                    isShowingCachedData = fromCache,
+                    refreshFailedWithData = false,
+                )
+                if (pendingFinalize) {
+                    PendingFinalizeBanner()
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -155,7 +234,7 @@ fun ViagemDetalheScreen(
                     StatusBadge(status = trip.status)
                 }
 
-                if (trip.status == "EM_ANDAMENTO") {
+                if (emAndamento) {
                     Button(
                         onClick = {
                             showFinalizarDialog = true
@@ -199,7 +278,6 @@ fun ViagemDetalheScreen(
                 }
 
                 SectionCard(title = "Financeiro") {
-                    val percentualMotorista = trip.valorBruto * 0.12
                     DetailLine(
                         label = "Valor bruto",
                         value = formatBrl(trip.valorBruto),
@@ -213,12 +291,12 @@ fun ViagemDetalheScreen(
                         value = formatBrl(trip.totalAbastecimentos),
                     )
                     DetailLine(
-                        label = "Saldo empresa",
+                        label = "Resultado desta viagem",
                         value = formatBrl(trip.saldoEmpresa),
                     )
                     DetailLine(
-                        label = "Percentual motorista (12%)",
-                        value = formatBrl(percentualMotorista),
+                        label = "Seu percentual (12%)",
+                        value = formatBrl(valorMotorista),
                     )
                     val temQuebraInfo = trip.kgPerdido != null ||
                         ((trip.valorQuebra ?: 0.0) > 0.0)
@@ -255,6 +333,10 @@ fun ViagemDetalheScreen(
                                 value = formatBrl(abastecimento.valorTotal),
                             )
                             DetailLine(label = "Data", value = formatIsoDateTimeBr(abastecimento.data))
+                            ComprovanteImage(
+                                relativeUrl = abastecimento.comprovanteUrl,
+                                contentDescription = "Comprovante do abastecimento",
+                            )
                             HorizontalDivider(
                                 modifier = Modifier.padding(vertical = 8.dp),
                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
@@ -263,6 +345,7 @@ fun ViagemDetalheScreen(
                     }
                     OutlinedButton(
                         onClick = { onNavigateNovoAbastecimento(viagemId) },
+                        enabled = emAndamento,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp),
@@ -290,6 +373,10 @@ fun ViagemDetalheScreen(
                             )
                             DetailLine(label = "Descrição", value = despesa.descricao.orEmpty())
                             DetailLine(label = "Data", value = formatIsoDateTimeBr(despesa.data))
+                            ComprovanteImage(
+                                relativeUrl = despesa.comprovanteUrl,
+                                contentDescription = "Comprovante da despesa",
+                            )
                             HorizontalDivider(
                                 modifier = Modifier.padding(vertical = 8.dp),
                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
@@ -298,6 +385,7 @@ fun ViagemDetalheScreen(
                     }
                     OutlinedButton(
                         onClick = { onNavigateNovaDespesa(viagemId) },
+                        enabled = emAndamento,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp),
@@ -308,6 +396,7 @@ fun ViagemDetalheScreen(
                         Text(text = "Registrar despesa")
                     }
                 }
+            }
             }
         }
         else -> {
@@ -425,9 +514,9 @@ fun ViagemDetalheScreen(
                                 viewModel.finalizarViagem(
                                     viagemId = viagemId,
                                     teveQuebra = false,
-                                    onSuccess = {
-                                        showSnackbar("Viagem finalizada")
-                                        onFinanceiroChanged()
+                                    onSuccess = { queued ->
+                                        showSnackbar(operationSuccessMessage("Viagem finalizada", queued))
+                                        if (!queued) onFinanceiroChanged()
                                         showFinalizarDialog = false
                                     },
                                 )
@@ -451,9 +540,9 @@ fun ViagemDetalheScreen(
                                     kgPerdido = kgPerdido,
                                     valorQuebra = valorQuebra,
                                     observacaoQuebra = observacaoQuebra.trim().ifBlank { null },
-                                    onSuccess = {
-                                        showSnackbar("Viagem finalizada")
-                                        onFinanceiroChanged()
+                                    onSuccess = { queued ->
+                                        showSnackbar(operationSuccessMessage("Viagem finalizada", queued))
+                                        if (!queued) onFinanceiroChanged()
                                         showFinalizarDialog = false
                                     },
                                 )

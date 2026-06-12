@@ -26,7 +26,9 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import com.example.rodoflow.ui.components.AppTopBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,6 +44,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.rodoflow.ui.components.LocalSnackbar
+import com.example.rodoflow.ui.util.operationSuccessMessage
 import com.example.rodoflow.ui.theme.AppButtonShape
 import com.example.rodoflow.ui.theme.AppCardShape
 import com.example.rodoflow.ui.util.formatBrl
@@ -86,19 +89,23 @@ fun NovaViagemScreen(
 
     val focusManager = LocalFocusManager.current
 
+    Scaffold(
+        topBar = {
+            AppTopBar(
+                title = "Nova viagem",
+                onNavigateBack = onNavigateBack,
+            )
+        },
+    ) { innerPadding ->
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .padding(innerPadding)
             .verticalScroll(rememberScrollState())
             .imePadding()
             .padding(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text(
-            text = "Nova viagem",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.SemiBold,
-        )
         Text(
             text = "Preencha os dados da rota e da carga.",
             style = MaterialTheme.typography.bodyMedium,
@@ -302,9 +309,9 @@ fun NovaViagemScreen(
                     cnpjCliente = cnpjClienteValue,
                     tipoCarga = tipoCarga,
                     kmInicial = kmInicial,
-                    onSuccess = {
+                    onSuccess = { queued ->
                         saving = false
-                        showSnackbar("Viagem criada")
+                        showSnackbar(operationSuccessMessage("Viagem criada", queued))
                         onNavigateBack()
                     },
                     onError = { message ->
@@ -334,5 +341,6 @@ fun NovaViagemScreen(
                 Text(if (saving) "Salvando..." else "Criar viagem")
             }
         }
+    }
     }
 }

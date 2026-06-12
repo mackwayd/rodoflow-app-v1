@@ -13,6 +13,7 @@ data class Viagem(
     val dataInicio: String = "",
     val dataFim: String? = null,
     val valorBruto: Double = 0.0,
+    val valorMotorista: Double = 0.0,
     val totalDespesas: Double = 0.0,
     val totalAbastecimentos: Double = 0.0,
     val saldoEmpresa: Double = 0.0,
@@ -26,14 +27,19 @@ data class Viagem(
 )
 
 data class AbastecimentoViagem(
+    val id: String = "",
     val litros: Double = 0.0,
+    val valorLitro: Double? = null,
     val valorTotal: Double = 0.0,
     val data: String = "",
+    val comprovanteUrl: String? = null,
 )
 
 data class DespesaViagem(
+    val id: String = "",
     val tipo: String = "",
     val valor: Double = 0.0,
     val descricao: String? = null,
     val data: String = "",
+    val comprovanteUrl: String? = null,
 )

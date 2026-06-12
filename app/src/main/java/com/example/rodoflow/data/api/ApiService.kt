@@ -1,21 +1,27 @@
 package com.example.rodoflow.data.api
 
 import com.example.rodoflow.data.model.CreateViagemRequest
-import com.example.rodoflow.data.model.CreateAbastecimentoRequest
-import com.example.rodoflow.data.model.CreateDespesaRequest
+import com.example.rodoflow.data.model.LoginRequest
+import com.example.rodoflow.data.model.LoginResponse
 import com.example.rodoflow.data.model.FinalizarViagemRequest
 import com.example.rodoflow.data.model.ResumoViagem
 import com.example.rodoflow.data.model.SaldoMotorista
 import com.example.rodoflow.data.model.Viagem
+import okhttp3.MultipartBody
 import okhttp3.ResponseBody
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.PATCH
+import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.POST
 import retrofit2.http.Query
 
 interface ApiService {
+
+    @POST("auth/login")
+    suspend fun login(@Body body: LoginRequest): LoginResponse
 
     @GET("financeiro/resumo")
     suspend fun getResumo(): ResponseBody
@@ -41,9 +47,25 @@ interface ApiService {
     @POST("viagens")
     suspend fun createViagem(@Body body: CreateViagemRequest): ResponseBody
 
+    @Multipart
     @POST("despesas")
-    suspend fun createDespesa(@Body body: CreateDespesaRequest): ResponseBody
+    suspend fun createDespesa(
+        @Part("caminhaoId") caminhaoId: okhttp3.RequestBody,
+        @Part("valor") valor: okhttp3.RequestBody,
+        @Part("tipo") tipo: okhttp3.RequestBody,
+        @Part("data") data: okhttp3.RequestBody,
+        @Part("viagemId") viagemId: okhttp3.RequestBody?,
+        @Part comprovante: MultipartBody.Part?,
+    ): ResponseBody
 
+    @Multipart
     @POST("abastecimentos")
-    suspend fun createAbastecimento(@Body body: CreateAbastecimentoRequest): ResponseBody
+    suspend fun createAbastecimento(
+        @Part("caminhaoId") caminhaoId: okhttp3.RequestBody,
+        @Part("litros") litros: okhttp3.RequestBody,
+        @Part("valorLitro") valorLitro: okhttp3.RequestBody,
+        @Part("data") data: okhttp3.RequestBody,
+        @Part("viagemId") viagemId: okhttp3.RequestBody?,
+        @Part comprovante: MultipartBody.Part?,
+    ): ResponseBody
 }

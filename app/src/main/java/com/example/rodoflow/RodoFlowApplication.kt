@@ -7,5 +7,6 @@ class RodoFlowApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         AppContext.init(this)
+        AppServices.init(this)
     }
 }

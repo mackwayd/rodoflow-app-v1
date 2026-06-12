@@ -1,0 +1,14 @@
+# Copie para local.properties (não versionar — o Android Studio já cria local.properties com sdk.dir).
+
+# Chave do app — deve ser idêntica a MOBILE_API_KEY no .env do backend.
+RODOFLOW_API_KEY=sua-chave-mobile-aqui
+
+# URL da API (opcional). Se omitir, usa produção:
+#   https://api.rodoflow.net.br/
+#
+# Desenvolvimento local (backend rodoflow-backend-v2 na porta 3000):
+# Emulador Android → máquina host:
+# API_BASE_URL=http://10.0.2.2:3000/
+#
+# Celular físico na mesma rede Wi‑Fi (troque pelo IP do seu PC):
+# API_BASE_URL=http://192.168.0.10:3000/

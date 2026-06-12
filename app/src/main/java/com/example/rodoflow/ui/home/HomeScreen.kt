@@ -1,8 +1,6 @@
 package com.example.rodoflow.ui.home
 
-import com.example.rodoflow.AppLog
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,21 +11,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.AddRoad
 import androidx.compose.material.icons.outlined.LocalGasStation
-import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -39,12 +33,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.rodoflow.data.model.Viagem
+import com.example.rodoflow.ui.components.CachedDataBanner
 import com.example.rodoflow.ui.components.LoadDataErrorPanel
-import com.example.rodoflow.ui.components.StatusBadge
+import com.example.rodoflow.ui.components.PullRefreshBox
+import com.example.rodoflow.ui.components.ViagemStatusBanner
 import com.example.rodoflow.ui.components.StatusEmAndamentoColor
 import com.example.rodoflow.ui.components.StatusFinalizadaColor
 import com.example.rodoflow.ui.components.StatusPagaColor
@@ -67,18 +65,17 @@ fun HomeScreen(
 ) {
     val loading by viewModel.loading.collectAsStateWithLifecycle()
     val loadFailed by viewModel.loadFailed.collectAsStateWithLifecycle()
+    val isShowingCachedData by viewModel.isShowingCachedData.collectAsStateWithLifecycle()
+    val refreshFailedWithData by viewModel.refreshFailedWithData.collectAsStateWithLifecycle()
     val saldo by viewModel.saldo.collectAsStateWithLifecycle()
     val viagemAtual by viewModel.viagemAtual.collectAsStateWithLifecycle()
     val statusCounts by viewModel.statusCounts.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
-        AppLog.d("HOME_RELOAD", "LaunchedEffect(Unit) -> loadDashboard inicial")
         viewModel.loadDashboard()
     }
     LaunchedEffect(reloadNonce) {
-        AppLog.d("HOME_RELOAD", "LaunchedEffect(reloadNonce=$reloadNonce) disparado")
         if (reloadNonce > 0) {
-            AppLog.d("HOME_RELOAD", "reloadNonce>0 -> chamando loadDashboard")
             viewModel.loadDashboard()
         }
     }
@@ -93,40 +90,45 @@ fun HomeScreen(
             }
         }
         else -> {
-            DashboardContent(
-                viagemAtual = viagemAtual,
-                saldoEmpresaTotal = saldo.firstOrNull()?.saldoPendente ?: 0.0,
-                statusCounts = statusCounts,
-                isRefreshing = loading,
-                onNovaViagem = onNovaViagem,
-                onNovoAbastecimento = onNovoAbastecimento,
-                onNovaDespesa = onNovaDespesa,
-                onAbrirViagemAtual = onAbrirViagemAtual,
-            )
+            PullRefreshBox(
+                refreshing = loading,
+                onRefresh = { viewModel.loadDashboard() },
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    CachedDataBanner(
+                        isShowingCachedData = isShowingCachedData,
+                        refreshFailedWithData = refreshFailedWithData,
+                    )
+                    DashboardContent(
+                    viagemAtual = viagemAtual,
+                    resultadoAcumulado = saldo.firstOrNull()?.saldoPendente ?: 0.0,
+                    statusCounts = statusCounts,
+                    temViagemEmAndamento = viagemAtual != null,
+                    onNovaViagem = onNovaViagem,
+                    onNovoAbastecimento = onNovoAbastecimento,
+                    onNovaDespesa = onNovaDespesa,
+                    onAbrirViagemAtual = onAbrirViagemAtual,
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
 private fun DashboardLoading() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator()
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(text = "Carregando...")
-        }
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator()
     }
 }
 
 @Composable
 private fun DashboardContent(
     viagemAtual: Viagem?,
-    saldoEmpresaTotal: Double,
+    resultadoAcumulado: Double,
     statusCounts: StatusCounts,
-    isRefreshing: Boolean,
+    temViagemEmAndamento: Boolean,
     onNovaViagem: () -> Unit,
     onNovoAbastecimento: (String?) -> Unit,
     onNovaDespesa: (String?) -> Unit,
@@ -134,13 +136,13 @@ private fun DashboardContent(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
-            DashboardHeader(
-                saldoEmpresaTotal = saldoEmpresaTotal,
-                isRefreshing = isRefreshing,
+            ResumoHeroCard(
+                resultadoAcumulado = resultadoAcumulado,
+                statusCounts = statusCounts,
             )
         }
         item {
@@ -149,17 +151,10 @@ private fun DashboardContent(
                 onAbrirViagemAtual = onAbrirViagemAtual,
             )
         }
-        if (viagemAtual != null) {
-            item {
-                FinanceiroCard(viagem = viagemAtual)
-            }
-        }
         item {
-            IndicadoresRapidosRow(statusCounts = statusCounts)
-        }
-        item {
-            AcoesRapidasSection(
+            AcoesRapidasRow(
                 viagemAtual = viagemAtual,
+                temViagemEmAndamento = temViagemEmAndamento,
                 onNovaViagem = onNovaViagem,
                 onNovoAbastecimento = onNovoAbastecimento,
                 onNovaDespesa = onNovaDespesa,
@@ -169,48 +164,85 @@ private fun DashboardContent(
 }
 
 @Composable
-private fun DashboardHeader(
-    saldoEmpresaTotal: Double,
-    isRefreshing: Boolean,
+private fun ResumoHeroCard(
+    resultadoAcumulado: Double,
+    statusCounts: StatusCounts,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = AppCardShape) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Painel do motorista",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Operacional · custos · resultado",
-                style = MaterialTheme.typography.bodySmall,
+                text = "Resultado acumulado",
+                style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    text = "Saldo da empresa ",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+            Text(
+                text = formatBrl(resultadoAcumulado),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = saldoResultadoColor(resultadoAcumulado),
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                StatusChip(
+                    modifier = Modifier.weight(1f),
+                    count = statusCounts.emAndamento,
+                    label = "Ativas",
+                    accent = StatusEmAndamentoColor,
                 )
-                Text(
-                    text = formatBrl(saldoEmpresaTotal),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
+                StatusChip(
+                    modifier = Modifier.weight(1f),
+                    count = statusCounts.finalizadas,
+                    label = "Finalizadas",
+                    accent = StatusFinalizadaColor,
+                )
+                StatusChip(
+                    modifier = Modifier.weight(1f),
+                    count = statusCounts.pagas,
+                    label = "Pagas",
+                    accent = StatusPagaColor,
                 )
             }
         }
-        if (isRefreshing) {
-            CircularProgressIndicator(
-                modifier = Modifier
-                    .padding(start = 8.dp)
-                    .size(22.dp),
-                strokeWidth = 2.dp,
+    }
+}
+
+@Composable
+private fun StatusChip(
+    modifier: Modifier = Modifier,
+    count: Int,
+    label: String,
+    accent: Color,
+) {
+    Card(
+        modifier = modifier,
+        shape = AppCompactCardShape,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp, horizontal = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = count.toString(),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = accent,
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -221,24 +253,107 @@ private fun ViagemAtualCard(
     viagem: Viagem?,
     onAbrirViagemAtual: (String) -> Unit,
 ) {
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = AppCardShape,
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Text(
-                text = "Operacional — viagem atual",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-
+    ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = AppCardShape) {
+        Column(modifier = Modifier.padding(16.dp)) {
             if (viagem == null) {
-                EmptyViagemAtual()
+                Text(
+                    text = "Nenhuma viagem ativa",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Inicie uma nova viagem pelo atalho abaixo.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             } else {
-                ViagemAtualBody(
-                    viagem = viagem,
-                    onAbrir = onAbrirViagemAtual,
+                ViagemStatusBanner(status = viagem.status)
+                Spacer(modifier = Modifier.height(10.dp))
+                val origem = formatRouteSegment(viagem.origem.ifBlank { "-" })
+                val destino = formatRouteSegment(viagem.destino.ifBlank { "-" })
+                Text(
+                    text = "$origem → $destino",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = formatRouteSegment(viagem.cliente.ifBlank { "-" }),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = formatToneladas(viagem.numeroToneladas),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(modifier = Modifier.height(14.dp))
+                MetricRow(
+                    items = listOf(
+                        "Bruto" to formatBrl(viagem.valorBrutoEfetivo ?: viagem.valorBruto),
+                        "Despesas" to formatBrl(viagem.totalDespesas),
+                        "Abast." to formatBrl(viagem.totalAbastecimentos),
+                    ),
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom,
+                ) {
+                    Column {
+                        Text(
+                            text = "Resultado desta viagem",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = formatBrl(viagem.saldoEmpresa),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = saldoResultadoColor(viagem.saldoEmpresa),
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = { onAbrirViagemAtual(viagem.id) },
+                        shape = AppButtonShape,
+                    ) {
+                        Text("Detalhes")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MetricRow(items: List<Pair<String, String>>) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        items.forEach { (label, value) ->
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
                 )
             }
         }
@@ -246,280 +361,95 @@ private fun ViagemAtualCard(
 }
 
 @Composable
-private fun EmptyViagemAtual() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = "Nenhuma viagem em andamento",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Medium,
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = "Inicie uma nova viagem pelo atalho abaixo.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun ViagemAtualBody(
-    viagem: Viagem,
-    onAbrir: (String) -> Unit,
-) {
-    val origem = formatRouteSegment(viagem.origem.ifBlank { "-" })
-    val destino = formatRouteSegment(viagem.destino.ifBlank { "-" })
-    Text(
-        text = "$origem → $destino",
-        style = MaterialTheme.typography.titleLarge,
-        fontWeight = FontWeight.SemiBold,
-    )
-    Spacer(modifier = Modifier.height(12.dp))
-    InfoLine(label = "Cliente", value = formatRouteSegment(viagem.cliente.ifBlank { "-" }))
-    Spacer(modifier = Modifier.height(10.dp))
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Text(
-            text = "Status",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        StatusBadge(status = viagem.status)
-    }
-    Spacer(modifier = Modifier.height(12.dp))
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-    Spacer(modifier = Modifier.height(12.dp))
-    val valorBruto = viagem.valorBrutoEfetivo ?: viagem.valorBruto
-    Text(
-        text = "Valor bruto",
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Text(
-        text = formatBrl(valorBruto),
-        style = MaterialTheme.typography.headlineSmall,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary,
-    )
-    Spacer(modifier = Modifier.height(8.dp))
-    InfoLine(
-        label = "Toneladas",
-        value = formatToneladas(viagem.numeroToneladas),
-    )
-    Spacer(modifier = Modifier.height(14.dp))
-    OutlinedButton(
-        onClick = { onAbrir(viagem.id) },
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(48.dp),
-        shape = AppButtonShape,
-    ) {
-        Text(text = "Abrir detalhes da viagem")
-    }
-}
-
-@Composable
-private fun FinanceiroCard(viagem: Viagem) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = AppCardShape) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Text(
-                text = "Custos e resultado",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(modifier = Modifier.height(14.dp))
-            InfoLine(label = "Total despesas", value = formatBrl(viagem.totalDespesas))
-            Spacer(modifier = Modifier.height(8.dp))
-            InfoLine(label = "Total abastecimentos", value = formatBrl(viagem.totalAbastecimentos))
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "Saldo final",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = formatBrl(viagem.saldoEmpresa),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = saldoResultadoColor(viagem.saldoEmpresa),
-            )
-        }
-    }
-}
-
-@Composable
-private fun IndicadoresRapidosRow(statusCounts: StatusCounts) {
-    Column {
-        Text(
-            text = "Indicadores rápidos",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            IndicadorCard(
-                modifier = Modifier.weight(1f),
-                label = "Em andamento",
-                count = statusCounts.emAndamento,
-                accent = StatusEmAndamentoColor,
-            )
-            IndicadorCard(
-                modifier = Modifier.weight(1f),
-                label = "Finalizadas",
-                count = statusCounts.finalizadas,
-                accent = StatusFinalizadaColor,
-            )
-            IndicadorCard(
-                modifier = Modifier.weight(1f),
-                label = "Pagas",
-                count = statusCounts.pagas,
-                accent = StatusPagaColor,
-            )
-        }
-    }
-}
-
-@Composable
-private fun IndicadorCard(
-    modifier: Modifier = Modifier,
-    label: String,
-    count: Int,
-    accent: Color,
-) {
-    Card(
-        modifier = modifier,
-        shape = AppCompactCardShape,
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
-        ),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.55f),
-        ),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Box(
-                modifier = Modifier
-                    .padding(bottom = 6.dp)
-                    .width(40.dp)
-                    .height(3.dp)
-                    .background(accent, RoundedCornerShape(2.dp)),
-            )
-            Text(
-                text = count.toString(),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = accent,
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Medium,
-            )
-        }
-    }
-}
-
-@Composable
-private fun AcoesRapidasSection(
+private fun AcoesRapidasRow(
     viagemAtual: Viagem?,
+    temViagemEmAndamento: Boolean,
     onNovaViagem: () -> Unit,
     onNovoAbastecimento: (String?) -> Unit,
     onNovaDespesa: (String?) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-            text = "Atalhos",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-        )
-        OutlinedButton(
-            onClick = { onNovaDespesa(viagemAtual?.id) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(54.dp),
-            shape = AppButtonShape,
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Icon(
-                Icons.Outlined.ReceiptLong,
-                contentDescription = null,
-                modifier = Modifier.size(22.dp),
+            QuickActionButton(
+                modifier = Modifier.weight(1f),
+                label = "Despesa",
+                icon = { Icon(Icons.AutoMirrored.Outlined.ReceiptLong, contentDescription = null) },
+                onClick = { onNovaDespesa(viagemAtual?.id) },
             )
-            Spacer(modifier = Modifier.width(10.dp))
-            Text(text = "Nova despesa", style = MaterialTheme.typography.titleSmall)
-        }
-        OutlinedButton(
-            onClick = { onNovoAbastecimento(viagemAtual?.id) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(54.dp),
-            shape = AppButtonShape,
-        ) {
-            Icon(
-                Icons.Outlined.LocalGasStation,
-                contentDescription = null,
-                modifier = Modifier.size(22.dp),
+            QuickActionButton(
+                modifier = Modifier.weight(1f),
+                label = "Abastec.",
+                icon = { Icon(Icons.Outlined.LocalGasStation, contentDescription = null) },
+                onClick = { onNovoAbastecimento(viagemAtual?.id) },
             )
-            Spacer(modifier = Modifier.width(10.dp))
-            Text(text = "Novo abastecimento", style = MaterialTheme.typography.titleSmall)
-        }
-        Button(
-            onClick = onNovaViagem,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(54.dp),
-            shape = AppButtonShape,
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
-        ) {
-            Icon(
-                Icons.Outlined.AddRoad,
-                contentDescription = null,
-                modifier = Modifier.size(22.dp),
+            QuickActionButton(
+                modifier = Modifier.weight(1f),
+                label = "Viagem",
+                icon = { Icon(Icons.Outlined.AddRoad, contentDescription = null) },
+                enabled = !temViagemEmAndamento,
+                primary = true,
+                onClick = onNovaViagem,
             )
-            Spacer(modifier = Modifier.width(10.dp))
-            Text(text = "Nova viagem", style = MaterialTheme.typography.titleSmall)
         }
-        if (viagemAtual == null) {
+        if (temViagemEmAndamento) {
             Text(
-                text = "Sem viagem em andamento. Despesas e abastecimentos serão registrados como avulsos no caixa geral.",
-                style = MaterialTheme.typography.bodySmall,
+                text = "Finalize a viagem atual para iniciar outra.",
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp),
             )
         }
     }
 }
 
 @Composable
-private fun InfoLine(label: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth()) {
+private fun QuickActionButton(
+    modifier: Modifier = Modifier,
+    label: String,
+    icon: @Composable () -> Unit,
+    enabled: Boolean = true,
+    primary: Boolean = false,
+    onClick: () -> Unit,
+) {
+    if (primary) {
+        Button(
+            onClick = onClick,
+            enabled = enabled,
+            modifier = modifier.height(72.dp),
+            shape = AppButtonShape,
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 1.dp),
+        ) {
+            QuickActionContent(label = label, icon = icon)
+        }
+    } else {
+        OutlinedButton(
+            onClick = onClick,
+            enabled = enabled,
+            modifier = modifier.height(72.dp),
+            shape = AppButtonShape,
+        ) {
+            QuickActionContent(label = label, icon = icon)
+        }
+    }
+}
+
+@Composable
+private fun QuickActionContent(
+    label: String,
+    icon: @Composable () -> Unit,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        icon()
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "$label: ",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            maxLines = 1,
         )
     }
 }

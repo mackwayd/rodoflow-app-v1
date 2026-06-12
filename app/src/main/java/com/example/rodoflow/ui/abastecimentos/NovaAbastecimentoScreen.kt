@@ -24,7 +24,9 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import com.example.rodoflow.ui.components.AppTopBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,7 +45,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.rodoflow.data.model.Viagem
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
+import com.example.rodoflow.data.util.ComprovanteReader
+import com.example.rodoflow.ui.components.ComprovantePicker
 import com.example.rodoflow.ui.components.LocalSnackbar
+import com.example.rodoflow.ui.util.operationSuccessMessage
 import com.example.rodoflow.ui.theme.AppBannerShape
 import com.example.rodoflow.ui.theme.AppButtonShape
 import com.example.rodoflow.ui.theme.AppCardShape
@@ -75,20 +82,26 @@ fun NovaAbastecimentoScreen(
     var valorLitro by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
+    var comprovanteUri by remember { mutableStateOf<Uri?>(null) }
+    val context = LocalContext.current
     val focusManager = LocalFocusManager.current
 
+    Scaffold(
+        topBar = {
+            AppTopBar(
+                title = "Novo abastecimento",
+                onNavigateBack = onNavigateBack,
+            )
+        },
+    ) { innerPadding ->
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .padding(innerPadding)
             .verticalScroll(rememberScrollState())
             .imePadding()
             .padding(horizontal = 20.dp, vertical = 18.dp),
     ) {
-        Text(
-            text = "Novo abastecimento",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.SemiBold,
-        )
         Text(
             text = "Informe litros e valor por litro. Pode vincular à viagem em andamento.",
             style = MaterialTheme.typography.bodyMedium,
@@ -137,6 +150,11 @@ fun NovaAbastecimentoScreen(
             ),
         )
         Spacer(modifier = Modifier.height(16.dp))
+        ComprovantePicker(
+            imageUri = comprovanteUri,
+            onImageSelected = { comprovanteUri = it },
+        )
+        Spacer(modifier = Modifier.height(16.dp))
         Button(
             enabled = !saving,
             onClick = {
@@ -157,19 +175,21 @@ fun NovaAbastecimentoScreen(
                 } else {
                     null
                 }
+                val comprovantePayload = comprovanteUri?.let { ComprovanteReader.read(context, it) }
                 saving = true
                 viewModel.createAbastecimento(
                     litros = litrosDouble,
                     valorLitro = valorLitroDouble,
                     viagemId = viagemIdParaEnviar,
-                    onSuccess = { vinculado ->
+                    comprovante = comprovantePayload,
+                    onSuccess = { vinculado, queued ->
                         saving = false
-                        val msg = if (vinculado) {
+                        val base = if (vinculado) {
                             "Abastecimento vinculado à viagem"
                         } else {
                             "Abastecimento avulso registrado"
                         }
-                        showSnackbar(msg)
+                        showSnackbar(operationSuccessMessage(base, queued))
                         onNavigateBack()
                     },
                     onError = { message ->
@@ -206,6 +226,7 @@ fun NovaAbastecimentoScreen(
                 color = MaterialTheme.colorScheme.error,
             )
         }
+    }
     }
 }
 

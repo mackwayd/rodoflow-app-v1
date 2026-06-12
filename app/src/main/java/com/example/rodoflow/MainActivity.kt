@@ -7,12 +7,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -49,10 +49,11 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.outlined.AddRoad
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -62,9 +63,16 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.rodoflow.AppLog
 import com.example.rodoflow.data.model.Viagem
+import com.example.rodoflow.ui.auth.LoginScreen
 import com.example.rodoflow.ui.abastecimentos.NovaAbastecimentoScreen
+import com.example.rodoflow.data.local.entity.PendingOperationEntity
+import com.example.rodoflow.data.sync.SyncScheduler
+import com.example.rodoflow.ui.components.CachedDataBanner
 import com.example.rodoflow.ui.components.LoadDataErrorPanel
 import com.example.rodoflow.ui.components.LocalSnackbar
+import com.example.rodoflow.ui.components.PendingSyncBanner
+import com.example.rodoflow.ui.components.PullRefreshBox
+import com.example.rodoflow.ui.util.MSG_SYNC_IN_PROGRESS
 import com.example.rodoflow.ui.components.StatusBadge
 import com.example.rodoflow.ui.despesas.NovaDespesaScreen
 import com.example.rodoflow.ui.financeiro.FinanceiroScreen
@@ -81,6 +89,9 @@ import com.example.rodoflow.ui.viagens.NovaViagemScreen
 import com.example.rodoflow.ui.viagens.ViagemDetalheScreen
 import com.example.rodoflow.ui.viagens.ViagemDetalheViewModel
 import com.example.rodoflow.ui.viagens.ViagensViewModel
+import com.example.rodoflow.ui.sync.PendingSyncScreen
+import com.example.rodoflow.ui.util.MSG_SYNC_COMPLETE
+import com.example.rodoflow.ui.util.MSG_VISIBLE_WINDOW_HINT
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -105,11 +116,28 @@ sealed interface ViagensIntent {
 
 @Composable
 fun RodoFlowApp() {
+    val authSession by AppServices.authSession.session.collectAsStateWithLifecycle()
+    if (authSession == null) {
+        LoginScreen(onLoggedIn = { /* estado atualizado pela sessão */ })
+        return
+    }
+
     var selectedTab by rememberSaveable { mutableStateOf(BottomTab.Home) }
     var homeReloadNonce by remember { mutableIntStateOf(0) }
     var viagensReloadNonce by remember { mutableIntStateOf(0) }
     var financeiroReloadNonce by remember { mutableIntStateOf(0) }
     var pendingViagensIntent by remember { mutableStateOf<ViagensIntent?>(null) }
+    var showPendingSyncScreen by remember { mutableStateOf(false) }
+    var previousQueueTotal by remember { mutableIntStateOf(0) }
+
+    val context = LocalContext.current
+    val pendingCount by AppServices.pendingOperationStore
+        .observeCountByStatus(PendingOperationEntity.STATUS_PENDING)
+        .collectAsStateWithLifecycle(initialValue = 0)
+    val failedCount by AppServices.pendingOperationStore
+        .observeCountByStatus(PendingOperationEntity.STATUS_FAILED)
+        .collectAsStateWithLifecycle(initialValue = 0)
+    val queueTotal = pendingCount + failedCount
 
     val snackbarHostState = remember { SnackbarHostState() }
     val snackbarScope = rememberCoroutineScope()
@@ -123,6 +151,25 @@ fun RodoFlowApp() {
         }
     }
 
+    LaunchedEffect(queueTotal) {
+        if (previousQueueTotal > queueTotal) {
+            homeReloadNonce++
+            viagensReloadNonce++
+            financeiroReloadNonce++
+            if (queueTotal == 0 && previousQueueTotal > 0) {
+                showSnackbar(MSG_SYNC_COMPLETE)
+            }
+        }
+        previousQueueTotal = queueTotal
+    }
+
+    if (showPendingSyncScreen) {
+        CompositionLocalProvider(LocalSnackbar provides showSnackbar) {
+            PendingSyncScreen(onNavigateBack = { showPendingSyncScreen = false })
+        }
+        return
+    }
+
     CompositionLocalProvider(LocalSnackbar provides showSnackbar) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -133,11 +180,6 @@ fun RodoFlowApp() {
                             selected = selectedTab == tab,
                             onClick = {
                                 selectedTab = tab
-                                when (tab) {
-                                    BottomTab.Home -> homeReloadNonce++
-                                    BottomTab.Viagens -> viagensReloadNonce++
-                                    BottomTab.Financeiro -> financeiroReloadNonce++
-                                }
                             },
                             icon = {
                                 Icon(
@@ -156,12 +198,28 @@ fun RodoFlowApp() {
                 }
             },
         ) { innerPadding ->
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
-                contentAlignment = Alignment.Center,
             ) {
+                PendingSyncBanner(
+                    pendingCount = pendingCount,
+                    failedCount = failedCount,
+                    onViewDetails = { showPendingSyncScreen = true },
+                    onSyncNow = {
+                        snackbarScope.launch {
+                            showSnackbar(MSG_SYNC_IN_PROGRESS)
+                            AppServices.outgoingOperations.retryFailedAndSchedule()
+                            SyncScheduler.schedule(context)
+                        }
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                )
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
                 when (selectedTab) {
                     BottomTab.Home -> HomeScreen(
                         reloadNonce = homeReloadNonce,
@@ -196,7 +254,14 @@ fun RodoFlowApp() {
                             )
                         },
                     )
-                    BottomTab.Financeiro -> FinanceiroScreen(reloadNonce = financeiroReloadNonce)
+                    BottomTab.Financeiro -> FinanceiroScreen(
+                        reloadNonce = financeiroReloadNonce,
+                        onAbrirViagem = { viagemId ->
+                            pendingViagensIntent = ViagensIntent.AbrirViagem(viagemId)
+                            selectedTab = BottomTab.Viagens
+                        },
+                    )
+                }
                 }
             }
         }
@@ -257,7 +322,10 @@ fun ViagensScreen(
         composable("viagens_list") {
             val loading by viewModel.loading.collectAsStateWithLifecycle()
             val loadFailed by viewModel.loadFailed.collectAsStateWithLifecycle()
+            val isShowingCachedData by viewModel.isShowingCachedData.collectAsStateWithLifecycle()
+            val refreshFailedWithData by viewModel.refreshFailedWithData.collectAsStateWithLifecycle()
             val viagens by viewModel.viagens.collectAsStateWithLifecycle()
+            val temViagemEmAndamento = viagens.any { it.status == "EM_ANDAMENTO" }
 
             LaunchedEffect(Unit) {
                 viewModel.loadViagens()
@@ -295,14 +363,24 @@ fun ViagensScreen(
                     }
                 }
                 else -> {
+                    PullRefreshBox(
+                        refreshing = loading,
+                        onRefresh = { viewModel.loadViagens() },
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(horizontal = 16.dp, vertical = 18.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
+                        CachedDataBanner(
+                            isShowingCachedData = isShowingCachedData,
+                            refreshFailedWithData = refreshFailedWithData,
+                        )
                         Button(
                             onClick = { navController.navigate("nova_viagem") },
+                            enabled = !temViagemEmAndamento,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(54.dp),
@@ -316,6 +394,13 @@ fun ViagensScreen(
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text("Nova viagem")
+                        }
+                        if (temViagemEmAndamento) {
+                            Text(
+                                text = "Finalize a viagem em andamento antes de iniciar outra.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
 
                         if (viagens.isEmpty()) {
@@ -335,6 +420,12 @@ fun ViagensScreen(
                                 Text(
                                     text = "As viagens criadas aparecerão aqui",
                                     style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = MSG_VISIBLE_WINDOW_HINT,
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
@@ -360,6 +451,7 @@ fun ViagensScreen(
                             }
                         }
                     }
+                    }
                 }
             }
         }
@@ -370,6 +462,7 @@ fun ViagensScreen(
             val viagemId = backStackEntry.arguments?.getString("viagemId").orEmpty()
             ViagemDetalheScreen(
                 viagemId = viagemId,
+                onNavigateBack = { navController.popBackStack() },
                 onNavigateNovaDespesa = { id -> navController.navigate("nova_despesa/$id") },
                 onNavigateNovoAbastecimento = { id -> navController.navigate("nova_abastecimento/$id") },
                 onFinanceiroChanged = onFinanceiroChanged,

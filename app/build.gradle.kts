@@ -12,6 +12,30 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+val localPropertiesFile = rootProject.file("local.properties")
+val localProperties = Properties()
+if (localPropertiesFile.exists()) {
+    localProperties.load(FileInputStream(localPropertiesFile))
+}
+
+/** Deve ser igual a MOBILE_API_KEY no backend. */
+val rodoflowApiKey =
+    localProperties.getProperty("RODOFLOW_API_KEY")
+        ?: "rodoflow-dev-mobile-key-troque-em-producao"
+
+/** Produção. Sobrescreva em local.properties com API_BASE_URL para dev local. */
+val defaultApiBaseUrl = "https://api.rodoflow.net.br/"
+
+fun normalizeApiBaseUrl(raw: String): String {
+    val trimmed = raw.trim()
+    if (trimmed.isEmpty()) return defaultApiBaseUrl
+    return if (trimmed.endsWith("/")) trimmed else "$trimmed/"
+}
+
+val rodoflowApiBaseUrl = normalizeApiBaseUrl(
+    localProperties.getProperty("API_BASE_URL") ?: defaultApiBaseUrl,
+)
+
 android {
     namespace = "com.example.rodoflow"
     compileSdk = 36
@@ -24,6 +48,17 @@ android {
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField(
+            "String",
+            "RODOFLOW_API_KEY",
+            "\"${rodoflowApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"",
+        )
+        buildConfigField(
+            "String",
+            "RODOFLOW_API_BASE_URL",
+            "\"${rodoflowApiBaseUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"",
+        )
     }
 
     signingConfigs {
@@ -82,8 +117,13 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation("androidx.compose.material:material")
     implementation("androidx.compose.material:material-icons-extended")
     implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.exifinterface)
+    implementation(libs.coil.compose)
+    implementation(libs.androidx.security.crypto)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

@@ -30,7 +30,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import com.example.rodoflow.ui.components.AppTopBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -51,7 +53,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.rodoflow.ui.util.formatRouteSegment
 import com.example.rodoflow.ui.util.humanizeTipoDespesa
 import com.example.rodoflow.data.model.Viagem
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
+import com.example.rodoflow.data.util.ComprovanteReader
+import com.example.rodoflow.ui.components.ComprovantePicker
 import com.example.rodoflow.ui.components.LocalSnackbar
+import com.example.rodoflow.ui.util.operationSuccessMessage
 import com.example.rodoflow.ui.theme.AppBannerShape
 import com.example.rodoflow.ui.theme.AppButtonShape
 import com.example.rodoflow.ui.theme.AppCardShape
@@ -86,20 +93,26 @@ fun NovaDespesaScreen(
     var valor by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
+    var comprovanteUri by remember { mutableStateOf<Uri?>(null) }
+    val context = LocalContext.current
     val focusManager = LocalFocusManager.current
 
+    Scaffold(
+        topBar = {
+            AppTopBar(
+                title = "Nova despesa",
+                onNavigateBack = onNavigateBack,
+            )
+        },
+    ) { innerPadding ->
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .padding(innerPadding)
             .verticalScroll(rememberScrollState())
             .imePadding()
             .padding(horizontal = 20.dp, vertical = 18.dp),
     ) {
-        Text(
-            text = "Nova despesa",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.SemiBold,
-        )
         Text(
             text = "Registre um gasto vinculado à viagem atual ou como avulso.",
             style = MaterialTheme.typography.bodyMedium,
@@ -190,6 +203,11 @@ fun NovaDespesaScreen(
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
+        ComprovantePicker(
+            imageUri = comprovanteUri,
+            onImageSelected = { comprovanteUri = it },
+        )
+        Spacer(modifier = Modifier.height(16.dp))
         Button(
             enabled = !saving,
             onClick = {
@@ -211,20 +229,22 @@ fun NovaDespesaScreen(
                 } else {
                     null
                 }
+                val comprovantePayload = comprovanteUri?.let { ComprovanteReader.read(context, it) }
                 saving = true
                 viewModel.createDespesa(
                     descricao = descricaoValue,
                     valor = valorDouble,
                     tipo = tipoValue,
                     viagemId = viagemIdParaEnviar,
-                    onSuccess = { vinculada ->
+                    comprovante = comprovantePayload,
+                    onSuccess = { vinculada, queued ->
                         saving = false
-                        val msg = if (vinculada) {
+                        val base = if (vinculada) {
                             "Despesa vinculada à viagem"
                         } else {
                             "Despesa registrada no caixa geral"
                         }
-                        showSnackbar(msg)
+                        showSnackbar(operationSuccessMessage(base, queued))
                         onNavigateBack()
                     },
                     onError = { message ->
@@ -261,6 +281,7 @@ fun NovaDespesaScreen(
                 color = MaterialTheme.colorScheme.error,
             )
         }
+    }
     }
 }
 

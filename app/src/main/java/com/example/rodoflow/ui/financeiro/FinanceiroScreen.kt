@@ -1,6 +1,7 @@
 package com.example.rodoflow.ui.financeiro
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,7 +15,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
@@ -29,29 +35,41 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.rodoflow.data.model.ResumoViagem
 import com.example.rodoflow.ui.theme.AppBannerShape
 import com.example.rodoflow.ui.theme.AppCardShape
+import com.example.rodoflow.ui.components.CachedDataBanner
 import com.example.rodoflow.ui.components.LoadDataErrorPanel
+import com.example.rodoflow.ui.components.PullRefreshBox
 import com.example.rodoflow.ui.components.StatusBadge
 import com.example.rodoflow.ui.components.saldoResultadoColor
 import com.example.rodoflow.ui.util.formatBrl
 import com.example.rodoflow.ui.util.formatKg
+import com.example.rodoflow.ui.util.MSG_FINANCEIRO_EMPTY_HINT
+import com.example.rodoflow.ui.util.MSG_FINANCEIRO_EMPTY_SUBTITLE
+import com.example.rodoflow.ui.util.MSG_FINANCEIRO_EMPTY_TITLE
+import com.example.rodoflow.ui.util.MSG_FINANCEIRO_WINDOW_HINT
 import com.example.rodoflow.ui.util.formatRouteSegment
 
 private val WarningSurface = Color(0xFFFFF3E0)
 private val WarningOnSurface = Color(0xFFB45309)
+private val FinanceiroEmptyIconSurface = Color(0xFF1E293B)
+private val FinanceiroEmptyIconTint = Color(0xFF94A3B8)
 
 @Composable
 fun FinanceiroScreen(
     reloadNonce: Int = 0,
+    onAbrirViagem: (String) -> Unit = {},
     viewModel: FinanceiroViewModel = viewModel(),
 ) {
     val loading by viewModel.loading.collectAsStateWithLifecycle()
     val loadFailed by viewModel.loadFailed.collectAsStateWithLifecycle()
+    val isShowingCachedData by viewModel.isShowingCachedData.collectAsStateWithLifecycle()
+    val refreshFailedWithData by viewModel.refreshFailedWithData.collectAsStateWithLifecycle()
     val resumos by viewModel.resumos.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
@@ -73,13 +91,38 @@ fun FinanceiroScreen(
             }
         }
         resumos.isEmpty() -> {
-            FinanceiroEmpty()
+            PullRefreshBox(
+                refreshing = loading,
+                onRefresh = { viewModel.loadResumo() },
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    CachedDataBanner(
+                        isShowingCachedData = isShowingCachedData,
+                        refreshFailedWithData = refreshFailedWithData,
+                    )
+                    FinanceiroEmpty()
+                }
+            }
         }
         else -> {
-            FinanceiroContent(
-                resumos = resumos,
-                isRefreshing = loading,
-            )
+            PullRefreshBox(
+                refreshing = loading,
+                onRefresh = { viewModel.loadResumo() },
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    CachedDataBanner(
+                        isShowingCachedData = isShowingCachedData,
+                        refreshFailedWithData = refreshFailedWithData,
+                    )
+                    FinanceiroContent(
+                        resumos = resumos,
+                        isRefreshing = loading,
+                        onAbrirViagem = onAbrirViagem,
+                    )
+                }
+            }
         }
     }
 }
@@ -97,22 +140,93 @@ private fun FinanceiroLoading() {
 
 @Composable
 private fun FinanceiroEmpty() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(24.dp),
+    val zeroTotals = remember { computeTotals(emptyList()) }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
+    ) {
+        item {
+            FinanceiroHeader(isRefreshing = false)
+        }
+        item {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .background(FinanceiroEmptyIconSurface, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.AccountBalanceWallet,
+                        contentDescription = null,
+                        modifier = Modifier.size(36.dp),
+                        tint = FinanceiroEmptyIconTint,
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = MSG_FINANCEIRO_EMPTY_TITLE,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = MSG_FINANCEIRO_EMPTY_SUBTITLE,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+        item {
+            ResumoPrincipalCard(totals = zeroTotals)
+        }
+        item {
+            CustosCard(totals = zeroTotals)
+        }
+        item {
+            FinanceiroPeriodInfoCard()
+        }
+    }
+}
+
+@Composable
+private fun FinanceiroPeriodInfoCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = AppCardShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+        ),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = "Nenhuma viagem encontrada",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
+            Icon(
+                imageVector = Icons.Outlined.CalendarMonth,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+                tint = MaterialTheme.colorScheme.primary,
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Quando houver viagens registradas, elas aparecem aqui.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "Período exibido: ${MSG_FINANCEIRO_WINDOW_HINT}",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(
+                    text = MSG_FINANCEIRO_EMPTY_HINT,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
@@ -121,6 +235,7 @@ private fun FinanceiroEmpty() {
 private fun FinanceiroContent(
     resumos: List<ResumoViagem>,
     isRefreshing: Boolean,
+    onAbrirViagem: (String) -> Unit,
 ) {
     val totals = remember(resumos) { computeTotals(resumos) }
 
@@ -146,7 +261,12 @@ private fun FinanceiroContent(
             )
         }
         items(items = resumos, key = { it.viagemId.ifBlank { it.hashCode().toString() } }) { resumo ->
-            ViagemOperacionalCard(resumo = resumo)
+            ViagemOperacionalCard(
+                resumo = resumo,
+                onClick = {
+                    if (resumo.viagemId.isNotBlank()) onAbrirViagem(resumo.viagemId)
+                },
+            )
         }
     }
 }
@@ -160,18 +280,13 @@ private fun FinanceiroHeader(isRefreshing: Boolean) {
     ) {
         Column {
             Text(
-                text = "Painel financeiro",
+                text = "Resumo financeiro",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = "Operacional · custos · resultado",
+                text = "Período: ${MSG_FINANCEIRO_WINDOW_HINT}",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = "Visão detalhada das viagens",
-                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -204,7 +319,7 @@ private fun ResumoPrincipalCard(totals: FinanceiroTotals) {
             ResumoLine(label = "Total abastecimentos", value = formatBrl(totals.totalAbastecimentos))
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Saldo final",
+                text = "Resultado acumulado",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -265,8 +380,16 @@ private fun CustosCard(totals: FinanceiroTotals) {
 }
 
 @Composable
-private fun ViagemOperacionalCard(resumo: ResumoViagem) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = AppCardShape) {
+private fun ViagemOperacionalCard(
+    resumo: ResumoViagem,
+    onClick: () -> Unit,
+) {
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = AppCardShape,
+    ) {
         Column(modifier = Modifier.padding(20.dp)) {
             val origemFmt = formatRouteSegment(resumo.origem.ifBlank { "-" })
             val destinoFmt = formatRouteSegment(resumo.destino.ifBlank { "-" })
